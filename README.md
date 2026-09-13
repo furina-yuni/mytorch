@@ -185,7 +185,7 @@ NPZ에는 Parameter와 persistent buffer만 저장됩니다. BatchNorm running �
 
 ## API 문서 관리
 
-문서는 [문서 홈](docs/index.html)과 17개의 모듈별 상세 페이지로 구성됩니다.
+문서는 [문서 홈](docs/index.html)과 21개의 모듈·기능별 상세 페이지로 구성됩니다.
 설명 원본은 `docs/content`, 공통 디자인은 `docs/assets/css`, 검색·테마·모바일
 동작은 `docs/assets/js`에 분리되어 있습니다. HTML은 현재 Python 시그니처를
 읽어 생성하므로 코드와 문서의 인자 목록이 어긋나는 것을 줄일 수 있습니다.

@@ -24,7 +24,7 @@
   <div class="site-layout">
     <aside class="sidebar" aria-label="문서 모듈 탐색">
       <a class="overview-link" href="index.html">문서 홈</a>
-      <div class="nav-group"><span>Core</span><a href="api/tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="api/autograd.html">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Runtime</span><a href="api/cuda.html">CUDA 상태 확인</a></div><div class="nav-group"><span>Persistence</span><a href="api/serialization.html">모델 저장과 불러오기</a></div><div class="nav-group"><span>Neural network</span><a href="api/nn-modules.html">Module, 컨테이너, 활성화·손실 클래스</a><a href="api/nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="api/nn-conv.html">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="api/nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="api/nn-attention.html">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="api/nn-efficient.html">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="api/nn-functional.html">함수형 신경망 API</a></div><div class="nav-group"><span>Initialization</span><a href="api/nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="api/optim-optimizer.html">Optimizer 기반 클래스</a><a href="api/optim-sgd.html">SGD</a><a href="api/optim-adam.html">Adam 계열</a><a href="api/optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="api/optim-other.html">ASGD, Rprop, Adafactor, Lion</a></div>
+      <div class="nav-group"><span>Core</span><a href="api/tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="api/autograd.html">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Runtime</span><a href="api/cuda.html">CUDA 상태 확인</a></div><div class="nav-group"><span>Persistence</span><a href="api/serialization.html">모델 저장과 불러오기</a></div><div class="nav-group"><span>Neural network</span><a href="api/nn-core.html">Module과 기본 계층</a><a href="api/nn-activations.html">활성화 함수 Module</a><a href="api/nn-losses.html">손실 함수 Module</a><a href="api/nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="api/nn-conv.html">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="api/nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="api/nn-attention.html">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="api/nn-efficient.html">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="api/nn-functional-layers.html">함수형 계층 연산</a><a href="api/nn-functional-activations.html">함수형 활성화 연산</a><a href="api/nn-functional-losses.html">함수형 손실 연산</a></div><div class="nav-group"><span>Initialization</span><a href="api/nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="api/optim-optimizer.html">Optimizer 기반 클래스</a><a href="api/optim-sgd.html">SGD</a><a href="api/optim-adam.html">Adam 계열</a><a href="api/optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="api/optim-other.html">ASGD, Rprop, Adafactor, Lion</a></div>
     </aside>
     <main id="main" class="content">
       <header class="home-header">
@@ -95,11 +95,27 @@ optimizer.step()</code></pre>
           <span class="card-link">모듈 문서 보기 →</span>
         </a>
             
-        <a class="module-card searchable" href="api/nn-modules.html" data-search="mytorch.nn.modules Module, 컨테이너, 활성화·손실 클래스">
+        <a class="module-card searchable" href="api/nn-core.html" data-search="mytorch.nn.modules Module과 기본 계층">
           <span class="eyebrow">Neural network</span>
-          <h2>Module, 컨테이너, 활성화·손실 클래스</h2>
+          <h2>Module과 기본 계층</h2>
           <code>mytorch.nn.modules</code>
-          <p>학습 가능한 Parameter의 재귀 등록, 모델 모드, 상태 관리, 기본 Linear와 클래스형 활성화·손실 API를 다룹니다.</p>
+          <p>Parameter 등록, 모델 상태, Module 컨테이너와 Linear·Flatten 같은 기본 구성요소만 모아 설명합니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            
+        <a class="module-card searchable" href="api/nn-activations.html" data-search="mytorch.nn.modules 활성화 함수 Module">
+          <span class="eyebrow">Neural network</span>
+          <h2>활성화 함수 Module</h2>
+          <code>mytorch.nn.modules</code>
+          <p>ReLU 계열, smooth activation, shrink 함수와 GLU 계열을 클래스형 API로 분리해 설명합니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            
+        <a class="module-card searchable" href="api/nn-losses.html" data-search="mytorch.nn.modules 손실 함수 Module">
+          <span class="eyebrow">Neural network</span>
+          <h2>손실 함수 Module</h2>
+          <code>mytorch.nn.modules</code>
+          <p>회귀, 분류, 확률분포, ranking, metric learning과 segmentation 손실의 클래스형 API를 설명합니다.</p>
           <span class="card-link">모듈 문서 보기 →</span>
         </a>
             
@@ -143,11 +159,27 @@ optimizer.step()</code></pre>
           <span class="card-link">모듈 문서 보기 →</span>
         </a>
             
-        <a class="module-card searchable" href="api/nn-functional.html" data-search="mytorch.nn.functional 함수형 신경망 API">
+        <a class="module-card searchable" href="api/nn-functional-layers.html" data-search="mytorch.nn.functional 함수형 계층 연산">
           <span class="eyebrow">Functional</span>
-          <h2>함수형 신경망 API</h2>
+          <h2>함수형 계층 연산</h2>
           <code>mytorch.nn.functional</code>
-          <p>상태를 보관하지 않는 활성화, 선형·임베딩·정규화·합성곱·attention·손실 함수를 한곳에서 설명합니다.</p>
+          <p>Parameter 상태를 보관하지 않는 선형·임베딩·정규화·dropout·합성곱·pooling·attention 연산입니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            
+        <a class="module-card searchable" href="api/nn-functional-activations.html" data-search="mytorch.nn.functional 함수형 활성화 연산">
+          <span class="eyebrow">Functional</span>
+          <h2>함수형 활성화 연산</h2>
+          <code>mytorch.nn.functional</code>
+          <p>상태 없는 활성화 함수를 수식 계열별로 모아 입력·인자·gradient 규칙을 설명합니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            
+        <a class="module-card searchable" href="api/nn-functional-losses.html" data-search="mytorch.nn.functional 함수형 손실 연산">
+          <span class="eyebrow">Functional</span>
+          <h2>함수형 손실 연산</h2>
+          <code>mytorch.nn.functional</code>
+          <p>회귀·분류·분포·ranking·metric·segmentation 손실의 입력 shape와 reduction 규칙을 설명합니다.</p>
           <span class="card-link">모듈 문서 보기 →</span>
         </a>
             

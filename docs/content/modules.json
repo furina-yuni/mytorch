@@ -58,17 +58,62 @@
       "example": "import mytorch as mt\n\nmt.save(model.state_dict(), \"checkpoint.npz\")\nstate = mt.load(\"checkpoint.npz\", device=\"cuda:0\")\nmodel.load_state_dict(state)"
     },
     {
-      "slug": "nn-modules",
+      "slug": "nn-core",
       "module": "mytorch.nn.modules",
-      "title": "Module, 컨테이너, 활성화·손실 클래스",
+      "title": "Module과 기본 계층",
       "eyebrow": "Neural network",
-      "summary": "학습 가능한 Parameter의 재귀 등록, 모델 모드, 상태 관리, 기본 Linear와 클래스형 활성화·손실 API를 다룹니다.",
+      "summary": "Parameter 등록, 모델 상태, Module 컨테이너와 Linear·Flatten 같은 기본 구성요소만 모아 설명합니다.",
+      "include": [
+        "Parameter", "Module", "Linear", "Sequential", "ModuleList",
+        "ParameterList", "Identity", "Flatten"
+      ],
       "concepts": [
         "Module 속성에 Parameter나 자식 Module을 대입하면 자동 등록되어 parameters()와 state_dict()에 포함됩니다.",
-        "train()과 eval()은 모든 자식 모듈로 재귀 전파됩니다. Dropout, BatchNorm, RReLU처럼 모드 의존적인 계층에 중요합니다.",
-        "손실 클래스는 함수형 손실의 설정을 생성자에 보관하고 forward에서 prediction과 target을 받습니다."
+        "train(), eval(), to(), zero_grad()는 등록된 자식과 Parameter를 재귀적으로 처리합니다.",
+        "Sequential, ModuleList, ParameterList는 Python container와 비슷하지만 내부 객체의 등록 상태를 유지합니다."
       ],
-      "example": "import mytorch as mt\n\nmodel = mt.nn.Sequential(\n    mt.nn.Linear(8, 32),\n    mt.nn.GELU(),\n    mt.nn.Linear(32, 4),\n)\ncriterion = mt.nn.CrossEntropyLoss()\nlogits = model(mt.randn(16, 8))\ntarget = mt.tensor([0, 1, 2, 3] * 4, dtype=mt.int64)\nloss = criterion(logits, target)"
+      "example": "import mytorch as mt\n\nmodel = mt.nn.Sequential(\n    mt.nn.Linear(8, 32),\n    mt.nn.ReLU(),\n    mt.nn.Linear(32, 4),\n)\nprint([name for name, _ in model.named_parameters()])"
+    },
+    {
+      "slug": "nn-activations",
+      "module": "mytorch.nn.modules",
+      "title": "활성화 함수 Module",
+      "eyebrow": "Neural network",
+      "summary": "ReLU 계열, smooth activation, shrink 함수와 GLU 계열을 클래스형 API로 분리해 설명합니다.",
+      "include": [
+        "ReLU", "LeakyReLU", "Sigmoid", "Tanh", "Softmax", "LogSoftmax",
+        "GELU", "SiLU", "Softplus", "Threshold", "Hardtanh", "ReLU6",
+        "ELU", "SELU", "CELU", "PReLU", "RReLU", "Hardsigmoid",
+        "Hardswish", "Hardshrink", "Softshrink", "Tanhshrink", "LogSigmoid",
+        "Softsign", "Softmin", "Mish", "GLU", "ReGLU", "GEGLU", "SwiGLU"
+      ],
+      "concepts": [
+        "Module형 활성화는 생성자 설정을 보관하므로 Sequential 안에 바로 등록할 수 있습니다.",
+        "PReLU만 학습 가능한 Parameter를 가지며 RReLU는 train/eval 모드에 따라 slope 생성 방식이 달라집니다.",
+        "GLU 계열은 지정 축을 둘로 나누므로 해당 축 크기가 짝수여야 하고 출력 크기는 절반이 됩니다."
+      ],
+      "example": "import mytorch as mt\n\nactivation = mt.nn.GELU(approximate=\"tanh\")\nx = mt.randn(32, 128, requires_grad=True)\ny = activation(x)\ny.mean().backward()"
+    },
+    {
+      "slug": "nn-losses",
+      "module": "mytorch.nn.modules",
+      "title": "손실 함수 Module",
+      "eyebrow": "Neural network",
+      "summary": "회귀, 분류, 확률분포, ranking, metric learning과 segmentation 손실의 클래스형 API를 설명합니다.",
+      "include": [
+        "MSELoss", "L1Loss", "SmoothL1Loss", "HuberLoss", "CrossEntropyLoss",
+        "NLLLoss", "BCELoss", "BCEWithLogitsLoss", "KLDivLoss",
+        "PoissonNLLLoss", "GaussianNLLLoss", "HingeEmbeddingLoss",
+        "MarginRankingLoss", "SoftMarginLoss", "MultiLabelSoftMarginLoss",
+        "CosineEmbeddingLoss", "TripletMarginLoss", "MultiMarginLoss",
+        "FocalLoss", "DiceLoss", "ContrastiveLoss"
+      ],
+      "concepts": [
+        "손실 Module은 reduction과 weight 같은 설정을 생성자에 보관하고 forward에서 prediction과 target을 받습니다.",
+        "분류 손실의 class-index target은 int64를 사용하고 BCE·회귀 손실은 일반적으로 입력과 같은 shape가 필요합니다.",
+        "reduction='none'은 개별 손실을 유지하며 'mean'과 'sum'은 역전파 가능한 scalar를 반환합니다."
+      ],
+      "example": "import mytorch as mt\n\ncriterion = mt.nn.CrossEntropyLoss(label_smoothing=0.1)\nlogits = mt.randn(16, 4, requires_grad=True)\ntarget = mt.tensor([0, 1, 2, 3] * 4, dtype=mt.int64)\nloss = criterion(logits, target)\nloss.backward()"
     },
     {
       "slug": "nn-basic",
@@ -136,17 +181,69 @@
       "example": "import mytorch as mt\n\nqat = mt.nn.BitLinear(256, 128, rms_norm=True)\ny_train = qat(mt.randn(32, 256))\npacked = qat.to_inference()\nwith mt.no_grad():\n    y_infer = packed(mt.randn(32, 256))\nprint(packed.compression_ratio)"
     },
     {
-      "slug": "nn-functional",
+      "slug": "nn-functional-layers",
       "module": "mytorch.nn.functional",
-      "title": "함수형 신경망 API",
+      "title": "함수형 계층 연산",
       "eyebrow": "Functional",
-      "summary": "상태를 보관하지 않는 활성화, 선형·임베딩·정규화·합성곱·attention·손실 함수를 한곳에서 설명합니다.",
-      "concepts": [
-        "함수형 API는 Parameter를 자동 등록하지 않습니다. 학습 상태가 필요하면 대응하는 nn.Module 클래스를 사용합니다.",
-        "대부분의 손실 함수는 reduction='none', 'mean', 'sum'을 지원하며 none은 원소별 또는 sample별 손실을 유지합니다.",
-        "softmax, log_softmax, BCEWithLogits, focal loss는 극단값에서도 overflow를 줄이는 안정적인 수식을 사용합니다."
+      "summary": "Parameter 상태를 보관하지 않는 선형·임베딩·정규화·dropout·합성곱·pooling·attention 연산입니다.",
+      "include": [
+        "linear", "bilinear", "dropout", "feature_dropout", "stochastic_depth",
+        "embedding", "embedding_bag", "layer_norm", "rms_norm", "group_norm",
+        "batch_norm", "instance_norm", "conv1d", "conv2d", "conv3d",
+        "conv_transpose1d", "conv_transpose2d", "conv_transpose3d",
+        "max_pool1d", "max_pool2d", "max_pool3d", "avg_pool1d", "avg_pool2d",
+        "avg_pool3d", "adaptive_max_pool1d", "adaptive_max_pool2d",
+        "adaptive_max_pool3d", "adaptive_avg_pool1d", "adaptive_avg_pool2d",
+        "adaptive_avg_pool3d", "scaled_dot_product_attention"
       ],
-      "example": "import mytorch as mt\n+from mytorch.nn import functional as F\n\nlogits = mt.randn(32, 10, requires_grad=True)\ntarget = mt.tensor([i % 10 for i in range(32)], dtype=mt.int64)\nloss = F.cross_entropy(logits, target, label_smoothing=0.1)\nloss.backward()"
+      "concepts": [
+        "함수형 계층은 weight와 bias를 직접 인자로 받으며 Parameter를 자동 등록하지 않습니다.",
+        "학습 가능한 상태나 train/eval 전환이 필요하면 대응하는 nn.Module 클래스를 사용하는 편이 안전합니다.",
+        "입력, weight, mask는 같은 CUDA 장치에 있어야 하며 장치 사이 암묵적 복사를 하지 않습니다."
+      ],
+      "example": "import mytorch as mt\nfrom mytorch.nn import functional as F\n\nx = mt.randn(8, 32)\nweight = mt.randn(64, 32, requires_grad=True)\nbias = mt.zeros(64, requires_grad=True)\ny = F.linear(x, weight, bias)"
+    },
+    {
+      "slug": "nn-functional-activations",
+      "module": "mytorch.nn.functional",
+      "title": "함수형 활성화 연산",
+      "eyebrow": "Functional",
+      "summary": "상태 없는 활성화 함수를 수식 계열별로 모아 입력·인자·gradient 규칙을 설명합니다.",
+      "include": [
+        "relu", "leaky_relu", "sigmoid", "tanh", "softmax", "log_softmax",
+        "gelu", "silu", "softplus", "threshold", "hardtanh", "relu6", "elu",
+        "selu", "celu", "prelu", "rrelu", "hardsigmoid", "hardswish",
+        "hardshrink", "softshrink", "tanhshrink", "logsigmoid", "softsign",
+        "softmin", "mish", "glu", "reglu", "geglu", "swiglu"
+      ],
+      "concepts": [
+        "함수형 활성화는 입력 Tensor를 변경하지 않고 같은 shape의 새 Tensor를 반환합니다.",
+        "softmax와 log_softmax는 지정 축에서 계산하며 GELU는 exact와 tanh 근사를 선택할 수 있습니다.",
+        "prelu의 weight만 외부 학습 Parameter를 받고 rrelu는 training 인자에 따라 무작위 slope를 사용합니다."
+      ],
+      "example": "import mytorch as mt\nfrom mytorch.nn import functional as F\n\nx = mt.tensor([-2.0, 0.0, 2.0], requires_grad=True)\ny = F.mish(x) + F.gelu(x, approximate=\"tanh\")\ny.sum().backward()"
+    },
+    {
+      "slug": "nn-functional-losses",
+      "module": "mytorch.nn.functional",
+      "title": "함수형 손실 연산",
+      "eyebrow": "Functional",
+      "summary": "회귀·분류·분포·ranking·metric·segmentation 손실의 입력 shape와 reduction 규칙을 설명합니다.",
+      "include": [
+        "mse_loss", "l1_loss", "smooth_l1_loss", "huber_loss", "cross_entropy",
+        "nll_loss", "binary_cross_entropy", "binary_cross_entropy_with_logits",
+        "kl_div", "poisson_nll_loss", "gaussian_nll_loss",
+        "hinge_embedding_loss", "margin_ranking_loss", "soft_margin_loss",
+        "multilabel_soft_margin_loss", "cosine_embedding_loss",
+        "triplet_margin_loss", "multi_margin_loss", "sigmoid_focal_loss",
+        "dice_loss", "contrastive_loss"
+      ],
+      "concepts": [
+        "대부분의 손실은 reduction='none', 'mean', 'sum'을 지원하며 KLDiv는 'batchmean'도 제공합니다.",
+        "BCEWithLogits, focal, log-softmax 기반 분류 손실은 큰 양수·음수 logits에서도 안정적인 식을 사용합니다.",
+        "target dtype과 shape 규칙은 손실마다 다르므로 각 API의 파라미터와 주의사항을 확인하십시오."
+      ],
+      "example": "import mytorch as mt\nfrom mytorch.nn import functional as F\n\nlogits = mt.randn(32, 10, requires_grad=True)\ntarget = mt.tensor([i % 10 for i in range(32)], dtype=mt.int64)\nloss = F.cross_entropy(logits, target, label_smoothing=0.1)\nloss.backward()"
     },
     {
       "slug": "nn-init",
@@ -172,7 +269,7 @@
         "같은 Parameter를 여러 그룹에 중복 등록할 수 없으며 빈 그룹과 알 수 없는 옵션은 거부됩니다.",
         "zero_grad(set_to_none=True)는 메모리를 절약하고, False는 기존 gradient 버퍼를 0으로 채웁니다."
       ],
-      "example": "optimizer = mt.optim.AdamW([\n    {\"params\": model.backbone.parameters(), \"lr\": 1e-4},\n    {\"params\": model.head.parameters(), \"lr\": 1e-3},\n+], weight_decay=0.01)"
+      "example": "optimizer = mt.optim.AdamW([\n    {\"params\": model.backbone.parameters(), \"lr\": 1e-4},\n    {\"params\": model.head.parameters(), \"lr\": 1e-3},\n], weight_decay=0.01)"
     },
     {
       "slug": "optim-sgd",

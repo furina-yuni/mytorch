@@ -209,7 +209,7 @@ CLASS_TO_FUNCTION = {
     "L1Loss": "l1_loss",
     "SmoothL1Loss": "smooth_l1_loss",
     "HuberLoss": "huber_loss",
-    "CrossEntropyLoss": "cross_entropy_loss",
+    "CrossEntropyLoss": "cross_entropy",
     "NLLLoss": "nll_loss",
     "BCELoss": "binary_cross_entropy",
     "BCEWithLogitsLoss": "binary_cross_entropy_with_logits",
@@ -472,15 +472,21 @@ def _class_members(value: type[Any], qualified: str) -> list[ApiItem]:
     return result
 
 
-def _collect(module_name: str) -> list[ApiItem]:
+def _collect(module_name: str, include: list[str] | None = None) -> list[ApiItem]:
     module = importlib.import_module(module_name)
     items = []
-    for name, value in inspect.getmembers(module):
+    members = (
+        [(name, getattr(module, name)) for name in include]
+        if include is not None
+        else inspect.getmembers(module)
+    )
+    for name, value in members:
         if name.startswith("_"):
             continue
-        if inspect.isclass(value) and value.__module__ == module_name:
+        defined_here = getattr(value, "__module__", None) == module_name
+        if inspect.isclass(value) and (defined_here or include is not None):
             kind = "class"
-        elif inspect.isfunction(value) and value.__module__ == module_name:
+        elif inspect.isfunction(value) and (defined_here or include is not None):
             kind = "function"
         else:
             continue
@@ -640,7 +646,7 @@ def _render_page(
     descriptions: dict[str, str],
     version: str,
 ) -> tuple[str, list[dict[str, str]]]:
-    items = _collect(page["module"])
+    items = _collect(page["module"], page.get("include"))
     toc = "".join(
         f'<a href="#api-{_slug(item.qualified)}"><code>{_escape(item.name)}</code></a>'
         for item in items
@@ -744,6 +750,10 @@ def main() -> None:
         )
     pages = catalog["pages"]
     API_DIR.mkdir(parents=True, exist_ok=True)
+    expected_api_pages = {f"{page['slug']}.html" for page in pages}
+    for stale_page in API_DIR.glob("*.html"):
+        if stale_page.name not in expected_api_pages:
+            stale_page.unlink()
     search_index = []
     for page in pages:
         body, entries = _render_page(page, pages, descriptions, version)
