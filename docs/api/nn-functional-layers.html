@@ -1,0 +1,955 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Parameter 상태를 보관하지 않는 선형·임베딩·정규화·dropout·합성곱·pooling·attention 연산입니다.">
+  <meta name="generator" content="MyTorch docs builder">
+  <title>함수형 계층 연산 · MyTorch 0.7.0</title>
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/docs.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">본문으로 건너뛰기</a>
+  <header class="topbar">
+    <button class="menu-button" type="button" aria-label="문서 메뉴 열기" aria-expanded="false">☰</button>
+    <a class="brand" href="../index.html"><span class="brand-mark">M</span><span>MyTorch</span><span class="version">v0.7.0</span></a>
+    <div class="search-box">
+      <label class="sr-only" for="site-search">API 검색</label>
+      <input id="site-search" type="search" placeholder="API 검색…  /" autocomplete="off">
+      <div id="search-results" class="search-results" hidden></div>
+    </div>
+    <button class="theme-button" type="button" aria-label="색상 테마 전환">◐</button>
+  </header>
+  <div class="site-layout">
+    <aside class="sidebar" aria-label="문서 모듈 탐색">
+      <a class="overview-link" href="../index.html">문서 홈</a>
+      <div class="nav-group"><span>Core</span><a href="tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="autograd.html">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Runtime</span><a href="cuda.html">CUDA 상태 확인</a></div><div class="nav-group"><span>Persistence</span><a href="serialization.html">모델 저장과 불러오기</a></div><div class="nav-group"><span>Neural network</span><a href="nn-core.html">Module과 기본 계층</a><a href="nn-activations.html">활성화 함수 Module</a><a href="nn-losses.html">손실 함수 Module</a><a href="nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="nn-conv.html">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="nn-attention.html">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="nn-efficient.html">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="nn-functional-layers.html" aria-current="page">함수형 계층 연산</a><a href="nn-functional-activations.html">함수형 활성화 연산</a><a href="nn-functional-losses.html">함수형 손실 연산</a></div><div class="nav-group"><span>Initialization</span><a href="nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="optim-optimizer.html">Optimizer 기반 클래스</a><a href="optim-sgd.html">SGD</a><a href="optim-adam.html">Adam 계열</a><a href="optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="optim-classical.html">ASGD와 Rprop</a><a href="optim-modern.html">Adafactor와 Lion</a></div>
+    </aside>
+    <main id="main" class="content">
+      <header class="page-header">
+        <div class="eyebrow">Functional · mytorch.nn.functional</div>
+        <h1>함수형 계층 연산</h1>
+        <p>Parameter 상태를 보관하지 않는 선형·임베딩·정규화·dropout·합성곱·pooling·attention 연산입니다.</p>
+        <div class="page-meta"><span>MyTorch 0.7.0</span><span>31개 API 항목</span><span>CUDA 전용</span></div>
+      </header>
+      <section class="concept-panel">
+        <div><h2>이 모듈을 사용할 때 알아둘 점</h2><ul><li>함수형 계층은 weight와 bias를 직접 인자로 받으며 Parameter를 자동 등록하지 않습니다.</li><li>학습 가능한 상태나 train/eval 전환이 필요하면 대응하는 nn.Module 클래스를 사용하는 편이 안전합니다.</li><li>입력, weight, mask는 같은 CUDA 장치에 있어야 하며 장치 사이 암묵적 복사를 하지 않습니다.</li></ul></div>
+        <div><h2>기본 예제</h2><pre><code>import mytorch as mt
+from mytorch.nn import functional as F
+
+x = mt.randn(8, 32)
+weight = mt.randn(64, 32, requires_grad=True)
+bias = mt.zeros(64, requires_grad=True)
+y = F.linear(x, weight, bias)</code></pre></div>
+      </section>
+      <nav class="page-toc" aria-label="이 페이지의 API"><strong>페이지 목차</strong><div><a href="#api-mytorch-nn-functional-linear"><code>linear</code></a><a href="#api-mytorch-nn-functional-bilinear"><code>bilinear</code></a><a href="#api-mytorch-nn-functional-dropout"><code>dropout</code></a><a href="#api-mytorch-nn-functional-feature-dropout"><code>feature_dropout</code></a><a href="#api-mytorch-nn-functional-stochastic-depth"><code>stochastic_depth</code></a><a href="#api-mytorch-nn-functional-embedding"><code>embedding</code></a><a href="#api-mytorch-nn-functional-embedding-bag"><code>embedding_bag</code></a><a href="#api-mytorch-nn-functional-layer-norm"><code>layer_norm</code></a><a href="#api-mytorch-nn-functional-rms-norm"><code>rms_norm</code></a><a href="#api-mytorch-nn-functional-group-norm"><code>group_norm</code></a><a href="#api-mytorch-nn-functional-batch-norm"><code>batch_norm</code></a><a href="#api-mytorch-nn-functional-instance-norm"><code>instance_norm</code></a><a href="#api-mytorch-nn-functional-conv1d"><code>conv1d</code></a><a href="#api-mytorch-nn-functional-conv2d"><code>conv2d</code></a><a href="#api-mytorch-nn-functional-conv3d"><code>conv3d</code></a><a href="#api-mytorch-nn-functional-conv-transpose1d"><code>conv_transpose1d</code></a><a href="#api-mytorch-nn-functional-conv-transpose2d"><code>conv_transpose2d</code></a><a href="#api-mytorch-nn-functional-conv-transpose3d"><code>conv_transpose3d</code></a><a href="#api-mytorch-nn-functional-max-pool1d"><code>max_pool1d</code></a><a href="#api-mytorch-nn-functional-max-pool2d"><code>max_pool2d</code></a><a href="#api-mytorch-nn-functional-max-pool3d"><code>max_pool3d</code></a><a href="#api-mytorch-nn-functional-avg-pool1d"><code>avg_pool1d</code></a><a href="#api-mytorch-nn-functional-avg-pool2d"><code>avg_pool2d</code></a><a href="#api-mytorch-nn-functional-avg-pool3d"><code>avg_pool3d</code></a><a href="#api-mytorch-nn-functional-adaptive-max-pool1d"><code>adaptive_max_pool1d</code></a><a href="#api-mytorch-nn-functional-adaptive-max-pool2d"><code>adaptive_max_pool2d</code></a><a href="#api-mytorch-nn-functional-adaptive-max-pool3d"><code>adaptive_max_pool3d</code></a><a href="#api-mytorch-nn-functional-adaptive-avg-pool1d"><code>adaptive_avg_pool1d</code></a><a href="#api-mytorch-nn-functional-adaptive-avg-pool2d"><code>adaptive_avg_pool2d</code></a><a href="#api-mytorch-nn-functional-adaptive-avg-pool3d"><code>adaptive_avg_pool3d</code></a><a href="#api-mytorch-nn-functional-scaled-dot-product-attention"><code>scaled_dot_product_attention</code></a></div></nav>
+      <div class="api-list">
+      <article class="api-card searchable" id="api-mytorch-nn-functional-linear" data-search="mytorch.nn.functional.linear GPU Tensor에 linear 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.linear</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-linear" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 linear 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.linear(input: &#x27;Tensor&#x27;, weight: &#x27;Tensor&#x27;, bias: &#x27;Tensor | None&#x27; = None) -&gt; &#x27;Tensor&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>weight</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>원소별·class별 가중치 또는 계층의 학습 가능한 weight Tensor입니다.</td></tr><tr><td><code>bias</code></td><td><code>&#x27;Tensor | None&#x27;</code></td><td><code>None</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-bilinear" data-search="mytorch.nn.functional.bilinear GPU Tensor에 bilinear 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.bilinear</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-bilinear" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 bilinear 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.bilinear(input1: &#x27;Tensor&#x27;, input2: &#x27;Tensor&#x27;, weight: &#x27;Tensor&#x27;, bias: &#x27;Tensor | None&#x27; = None) -&gt; &#x27;Tensor&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input1</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>첫 번째 입력 Tensor입니다.</td></tr><tr><td><code>input2</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>두 번째 입력 Tensor입니다.</td></tr><tr><td><code>weight</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>원소별·class별 가중치 또는 계층의 학습 가능한 weight Tensor입니다.</td></tr><tr><td><code>bias</code></td><td><code>&#x27;Tensor | None&#x27;</code></td><td><code>None</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-dropout" data-search="mytorch.nn.functional.dropout GPU Tensor에 dropout 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.dropout</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-dropout" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 dropout 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.dropout(input: &#x27;Tensor&#x27;, p: &#x27;float&#x27; = 0.5, training: &#x27;bool&#x27; = True) -&gt; &#x27;Tensor&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>p</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.5</code></td><td>확률, norm 차수 또는 optimizer 설정입니다. 문맥에 따른 허용 범위를 확인하십시오.</td></tr><tr><td><code>training</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 학습 모드의 확률적·통계적 동작을 사용합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-feature-dropout" data-search="mytorch.nn.functional.feature_dropout GPU Tensor에 feature_dropout 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.feature_dropout</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-feature-dropout" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 feature_dropout 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.feature_dropout(input: &#x27;Tensor&#x27;, p: &#x27;float&#x27; = 0.5, training: &#x27;bool&#x27; = True) -&gt; &#x27;Tensor&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>p</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.5</code></td><td>확률, norm 차수 또는 optimizer 설정입니다. 문맥에 따른 허용 범위를 확인하십시오.</td></tr><tr><td><code>training</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 학습 모드의 확률적·통계적 동작을 사용합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-stochastic-depth" data-search="mytorch.nn.functional.stochastic_depth GPU Tensor에 stochastic_depth 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.stochastic_depth</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-stochastic-depth" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 stochastic_depth 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.stochastic_depth(input: &#x27;Tensor&#x27;, p: &#x27;float&#x27;, mode: &#x27;str&#x27; = &#x27;row&#x27;, training: &#x27;bool&#x27; = True) -&gt; &#x27;Tensor&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>p</code></td><td><code>&#x27;float&#x27;</code></td><td><code>필수</code></td><td>확률, norm 차수 또는 optimizer 설정입니다. 문맥에 따른 허용 범위를 확인하십시오.</td></tr><tr><td><code>mode</code></td><td><code>&#x27;str&#x27;</code></td><td><code>&#x27;row&#x27;</code></td><td>계층이 지원하는 계산 모드입니다. 허용 문자열은 해당 API 설명을 따릅니다.</td></tr><tr><td><code>training</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 학습 모드의 확률적·통계적 동작을 사용합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-embedding" data-search="mytorch.nn.functional.embedding GPU Tensor에 embedding 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.embedding</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-embedding" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 embedding 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.embedding(input: &#x27;Tensor&#x27;, weight: &#x27;Tensor&#x27;, padding_idx: &#x27;int | None&#x27; = None) -&gt; &#x27;Tensor&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>weight</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>원소별·class별 가중치 또는 계층의 학습 가능한 weight Tensor입니다.</td></tr><tr><td><code>padding_idx</code></td><td><code>&#x27;int | None&#x27;</code></td><td><code>None</code></td><td>gradient와 갱신에서 제외할 padding token 인덱스입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-embedding-bag" data-search="mytorch.nn.functional.embedding_bag GPU Tensor에 embedding_bag 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.embedding_bag</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-embedding-bag" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 embedding_bag 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.embedding_bag(input: &#x27;Tensor&#x27;, weight: &#x27;Tensor&#x27;, offsets: &#x27;Tensor&#x27;, mode: &#x27;str&#x27; = &#x27;mean&#x27;) -&gt; &#x27;Tensor&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>weight</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>원소별·class별 가중치 또는 계층의 학습 가능한 weight Tensor입니다.</td></tr><tr><td><code>offsets</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>평탄화된 embedding index에서 각 bag이 시작하는 위치를 담은 정수 Tensor입니다.</td></tr><tr><td><code>mode</code></td><td><code>&#x27;str&#x27;</code></td><td><code>&#x27;mean&#x27;</code></td><td>계층이 지원하는 계산 모드입니다. 허용 문자열은 해당 API 설명을 따릅니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-layer-norm" data-search="mytorch.nn.functional.layer_norm GPU Tensor에 layer_norm 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.layer_norm</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-layer-norm" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 layer_norm 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.layer_norm(input: &#x27;Tensor&#x27;, normalized_shape: &#x27;tuple[int, ...]&#x27;, weight: &#x27;Tensor | None&#x27; = None, bias: &#x27;Tensor | None&#x27; = None, eps: &#x27;float&#x27; = 1e-05) -&gt; &#x27;Tensor&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>normalized_shape</code></td><td><code>&#x27;tuple[int, ...]&#x27;</code></td><td><code>필수</code></td><td>LayerNorm 또는 RMSNorm이 정규화할 입력의 마지막 연속 축 크기입니다.</td></tr><tr><td><code>weight</code></td><td><code>&#x27;Tensor | None&#x27;</code></td><td><code>None</code></td><td>원소별·class별 가중치 또는 계층의 학습 가능한 weight Tensor입니다.</td></tr><tr><td><code>bias</code></td><td><code>&#x27;Tensor | None&#x27;</code></td><td><code>None</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr><tr><td><code>eps</code></td><td><code>&#x27;float&#x27;</code></td><td><code>1e-05</code></td><td>0으로 나누거나 매우 작은 값에서 불안정해지는 것을 막는 양의 상수입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-rms-norm" data-search="mytorch.nn.functional.rms_norm GPU Tensor에 rms_norm 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.rms_norm</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-rms-norm" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 rms_norm 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.rms_norm(input: &#x27;Tensor&#x27;, normalized_shape: &#x27;tuple[int, ...]&#x27;, weight: &#x27;Tensor | None&#x27; = None, eps: &#x27;float&#x27; = 1e-05) -&gt; &#x27;Tensor&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>normalized_shape</code></td><td><code>&#x27;tuple[int, ...]&#x27;</code></td><td><code>필수</code></td><td>LayerNorm 또는 RMSNorm이 정규화할 입력의 마지막 연속 축 크기입니다.</td></tr><tr><td><code>weight</code></td><td><code>&#x27;Tensor | None&#x27;</code></td><td><code>None</code></td><td>원소별·class별 가중치 또는 계층의 학습 가능한 weight Tensor입니다.</td></tr><tr><td><code>eps</code></td><td><code>&#x27;float&#x27;</code></td><td><code>1e-05</code></td><td>0으로 나누거나 매우 작은 값에서 불안정해지는 것을 막는 양의 상수입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-group-norm" data-search="mytorch.nn.functional.group_norm GPU Tensor에 group_norm 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.group_norm</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-group-norm" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 group_norm 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.group_norm(input: &#x27;Tensor&#x27;, num_groups: &#x27;int&#x27;, weight: &#x27;Tensor | None&#x27; = None, bias: &#x27;Tensor | None&#x27; = None, eps: &#x27;float&#x27; = 1e-05) -&gt; &#x27;Tensor&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>num_groups</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>GroupNorm에서 channel을 나눌 그룹 수입니다. num_channels를 정확히 나누어야 합니다.</td></tr><tr><td><code>weight</code></td><td><code>&#x27;Tensor | None&#x27;</code></td><td><code>None</code></td><td>원소별·class별 가중치 또는 계층의 학습 가능한 weight Tensor입니다.</td></tr><tr><td><code>bias</code></td><td><code>&#x27;Tensor | None&#x27;</code></td><td><code>None</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr><tr><td><code>eps</code></td><td><code>&#x27;float&#x27;</code></td><td><code>1e-05</code></td><td>0으로 나누거나 매우 작은 값에서 불안정해지는 것을 막는 양의 상수입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-batch-norm" data-search="mytorch.nn.functional.batch_norm GPU Tensor에 batch_norm 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.batch_norm</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-batch-norm" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 batch_norm 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.batch_norm(input: &#x27;Tensor&#x27;, running_mean: &#x27;Tensor | None&#x27;, running_var: &#x27;Tensor | None&#x27;, weight: &#x27;Tensor | None&#x27; = None, bias: &#x27;Tensor | None&#x27; = None, training: &#x27;bool&#x27; = False, momentum: &#x27;float&#x27; = 0.1, eps: &#x27;float&#x27; = 1e-05) -&gt; &#x27;Tensor&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>running_mean</code></td><td><code>&#x27;Tensor | None&#x27;</code></td><td><code>필수</code></td><td>평가에 사용할 channel별 이동 평균 buffer입니다.</td></tr><tr><td><code>running_var</code></td><td><code>&#x27;Tensor | None&#x27;</code></td><td><code>필수</code></td><td>평가에 사용할 channel별 이동 분산 buffer입니다.</td></tr><tr><td><code>weight</code></td><td><code>&#x27;Tensor | None&#x27;</code></td><td><code>None</code></td><td>원소별·class별 가중치 또는 계층의 학습 가능한 weight Tensor입니다.</td></tr><tr><td><code>bias</code></td><td><code>&#x27;Tensor | None&#x27;</code></td><td><code>None</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr><tr><td><code>training</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>False</code></td><td>True이면 학습 모드의 확률적·통계적 동작을 사용합니다.</td></tr><tr><td><code>momentum</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.1</code></td><td>이동 평균 또는 optimizer momentum 계수입니다.</td></tr><tr><td><code>eps</code></td><td><code>&#x27;float&#x27;</code></td><td><code>1e-05</code></td><td>0으로 나누거나 매우 작은 값에서 불안정해지는 것을 막는 양의 상수입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-instance-norm" data-search="mytorch.nn.functional.instance_norm GPU Tensor에 instance_norm 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.instance_norm</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-instance-norm" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 instance_norm 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.instance_norm(input: &#x27;Tensor&#x27;, running_mean: &#x27;Tensor | None&#x27; = None, running_var: &#x27;Tensor | None&#x27; = None, weight: &#x27;Tensor | None&#x27; = None, bias: &#x27;Tensor | None&#x27; = None, use_input_stats: &#x27;bool&#x27; = True, momentum: &#x27;float&#x27; = 0.1, eps: &#x27;float&#x27; = 1e-05) -&gt; &#x27;Tensor&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>running_mean</code></td><td><code>&#x27;Tensor | None&#x27;</code></td><td><code>None</code></td><td>평가에 사용할 channel별 이동 평균 buffer입니다.</td></tr><tr><td><code>running_var</code></td><td><code>&#x27;Tensor | None&#x27;</code></td><td><code>None</code></td><td>평가에 사용할 channel별 이동 분산 buffer입니다.</td></tr><tr><td><code>weight</code></td><td><code>&#x27;Tensor | None&#x27;</code></td><td><code>None</code></td><td>원소별·class별 가중치 또는 계층의 학습 가능한 weight Tensor입니다.</td></tr><tr><td><code>bias</code></td><td><code>&#x27;Tensor | None&#x27;</code></td><td><code>None</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr><tr><td><code>use_input_stats</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 현재 입력 통계를, False이면 running 통계를 사용합니다.</td></tr><tr><td><code>momentum</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.1</code></td><td>이동 평균 또는 optimizer momentum 계수입니다.</td></tr><tr><td><code>eps</code></td><td><code>&#x27;float&#x27;</code></td><td><code>1e-05</code></td><td>0으로 나누거나 매우 작은 값에서 불안정해지는 것을 막는 양의 상수입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-conv1d" data-search="mytorch.nn.functional.conv1d GPU Tensor에 conv1d 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.conv1d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-conv1d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 conv1d 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.conv1d(input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1)</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>Any</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>weight</code></td><td><code>Any</code></td><td><code>필수</code></td><td>원소별·class별 가중치 또는 계층의 학습 가능한 weight Tensor입니다.</td></tr><tr><td><code>bias</code></td><td><code>Any</code></td><td><code>None</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr><tr><td><code>stride</code></td><td><code>Any</code></td><td><code>1</code></td><td>kernel이 이동하는 간격입니다. 생략 가능한 pooling에서는 kernel_size를 사용합니다.</td></tr><tr><td><code>padding</code></td><td><code>Any</code></td><td><code>0</code></td><td>입력 양쪽에 추가할 0 padding 크기입니다.</td></tr><tr><td><code>dilation</code></td><td><code>Any</code></td><td><code>1</code></td><td>kernel 원소 사이 간격입니다.</td></tr><tr><td><code>groups</code></td><td><code>Any</code></td><td><code>1</code></td><td>channel 연결 그룹 수입니다. depthwise/grouped convolution을 제어합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-conv2d" data-search="mytorch.nn.functional.conv2d GPU Tensor에 conv2d 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.conv2d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-conv2d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 conv2d 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.conv2d(input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1)</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>Any</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>weight</code></td><td><code>Any</code></td><td><code>필수</code></td><td>원소별·class별 가중치 또는 계층의 학습 가능한 weight Tensor입니다.</td></tr><tr><td><code>bias</code></td><td><code>Any</code></td><td><code>None</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr><tr><td><code>stride</code></td><td><code>Any</code></td><td><code>1</code></td><td>kernel이 이동하는 간격입니다. 생략 가능한 pooling에서는 kernel_size를 사용합니다.</td></tr><tr><td><code>padding</code></td><td><code>Any</code></td><td><code>0</code></td><td>입력 양쪽에 추가할 0 padding 크기입니다.</td></tr><tr><td><code>dilation</code></td><td><code>Any</code></td><td><code>1</code></td><td>kernel 원소 사이 간격입니다.</td></tr><tr><td><code>groups</code></td><td><code>Any</code></td><td><code>1</code></td><td>channel 연결 그룹 수입니다. depthwise/grouped convolution을 제어합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-conv3d" data-search="mytorch.nn.functional.conv3d GPU Tensor에 conv3d 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.conv3d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-conv3d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 conv3d 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.conv3d(input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1)</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>Any</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>weight</code></td><td><code>Any</code></td><td><code>필수</code></td><td>원소별·class별 가중치 또는 계층의 학습 가능한 weight Tensor입니다.</td></tr><tr><td><code>bias</code></td><td><code>Any</code></td><td><code>None</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr><tr><td><code>stride</code></td><td><code>Any</code></td><td><code>1</code></td><td>kernel이 이동하는 간격입니다. 생략 가능한 pooling에서는 kernel_size를 사용합니다.</td></tr><tr><td><code>padding</code></td><td><code>Any</code></td><td><code>0</code></td><td>입력 양쪽에 추가할 0 padding 크기입니다.</td></tr><tr><td><code>dilation</code></td><td><code>Any</code></td><td><code>1</code></td><td>kernel 원소 사이 간격입니다.</td></tr><tr><td><code>groups</code></td><td><code>Any</code></td><td><code>1</code></td><td>channel 연결 그룹 수입니다. depthwise/grouped convolution을 제어합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-conv-transpose1d" data-search="mytorch.nn.functional.conv_transpose1d GPU Tensor에 conv_transpose1d 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.conv_transpose1d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-conv-transpose1d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 conv_transpose1d 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.conv_transpose1d(input, weight, bias=None, stride=1, padding=0, output_padding=0, groups=1, dilation=1)</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>Any</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>weight</code></td><td><code>Any</code></td><td><code>필수</code></td><td>원소별·class별 가중치 또는 계층의 학습 가능한 weight Tensor입니다.</td></tr><tr><td><code>bias</code></td><td><code>Any</code></td><td><code>None</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr><tr><td><code>stride</code></td><td><code>Any</code></td><td><code>1</code></td><td>kernel이 이동하는 간격입니다. 생략 가능한 pooling에서는 kernel_size를 사용합니다.</td></tr><tr><td><code>padding</code></td><td><code>Any</code></td><td><code>0</code></td><td>입력 양쪽에 추가할 0 padding 크기입니다.</td></tr><tr><td><code>output_padding</code></td><td><code>Any</code></td><td><code>0</code></td><td>전치 합성곱의 모호한 출력 공간 크기를 조정하는 추가 크기입니다.</td></tr><tr><td><code>groups</code></td><td><code>Any</code></td><td><code>1</code></td><td>channel 연결 그룹 수입니다. depthwise/grouped convolution을 제어합니다.</td></tr><tr><td><code>dilation</code></td><td><code>Any</code></td><td><code>1</code></td><td>kernel 원소 사이 간격입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-conv-transpose2d" data-search="mytorch.nn.functional.conv_transpose2d GPU Tensor에 conv_transpose2d 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.conv_transpose2d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-conv-transpose2d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 conv_transpose2d 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.conv_transpose2d(input, weight, bias=None, stride=1, padding=0, output_padding=0, groups=1, dilation=1)</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>Any</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>weight</code></td><td><code>Any</code></td><td><code>필수</code></td><td>원소별·class별 가중치 또는 계층의 학습 가능한 weight Tensor입니다.</td></tr><tr><td><code>bias</code></td><td><code>Any</code></td><td><code>None</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr><tr><td><code>stride</code></td><td><code>Any</code></td><td><code>1</code></td><td>kernel이 이동하는 간격입니다. 생략 가능한 pooling에서는 kernel_size를 사용합니다.</td></tr><tr><td><code>padding</code></td><td><code>Any</code></td><td><code>0</code></td><td>입력 양쪽에 추가할 0 padding 크기입니다.</td></tr><tr><td><code>output_padding</code></td><td><code>Any</code></td><td><code>0</code></td><td>전치 합성곱의 모호한 출력 공간 크기를 조정하는 추가 크기입니다.</td></tr><tr><td><code>groups</code></td><td><code>Any</code></td><td><code>1</code></td><td>channel 연결 그룹 수입니다. depthwise/grouped convolution을 제어합니다.</td></tr><tr><td><code>dilation</code></td><td><code>Any</code></td><td><code>1</code></td><td>kernel 원소 사이 간격입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-conv-transpose3d" data-search="mytorch.nn.functional.conv_transpose3d GPU Tensor에 conv_transpose3d 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.conv_transpose3d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-conv-transpose3d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 conv_transpose3d 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.conv_transpose3d(input, weight, bias=None, stride=1, padding=0, output_padding=0, groups=1, dilation=1)</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>Any</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>weight</code></td><td><code>Any</code></td><td><code>필수</code></td><td>원소별·class별 가중치 또는 계층의 학습 가능한 weight Tensor입니다.</td></tr><tr><td><code>bias</code></td><td><code>Any</code></td><td><code>None</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr><tr><td><code>stride</code></td><td><code>Any</code></td><td><code>1</code></td><td>kernel이 이동하는 간격입니다. 생략 가능한 pooling에서는 kernel_size를 사용합니다.</td></tr><tr><td><code>padding</code></td><td><code>Any</code></td><td><code>0</code></td><td>입력 양쪽에 추가할 0 padding 크기입니다.</td></tr><tr><td><code>output_padding</code></td><td><code>Any</code></td><td><code>0</code></td><td>전치 합성곱의 모호한 출력 공간 크기를 조정하는 추가 크기입니다.</td></tr><tr><td><code>groups</code></td><td><code>Any</code></td><td><code>1</code></td><td>channel 연결 그룹 수입니다. depthwise/grouped convolution을 제어합니다.</td></tr><tr><td><code>dilation</code></td><td><code>Any</code></td><td><code>1</code></td><td>kernel 원소 사이 간격입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-max-pool1d" data-search="mytorch.nn.functional.max_pool1d GPU Tensor에 max_pool1d 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.max_pool1d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-max-pool1d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 max_pool1d 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.max_pool1d(input, kernel_size, stride=None, padding=0)</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>Any</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>kernel_size</code></td><td><code>Any</code></td><td><code>필수</code></td><td>공간 kernel 크기입니다. 정수 또는 차원별 tuple을 허용합니다.</td></tr><tr><td><code>stride</code></td><td><code>Any</code></td><td><code>None</code></td><td>kernel이 이동하는 간격입니다. 생략 가능한 pooling에서는 kernel_size를 사용합니다.</td></tr><tr><td><code>padding</code></td><td><code>Any</code></td><td><code>0</code></td><td>입력 양쪽에 추가할 0 padding 크기입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-max-pool2d" data-search="mytorch.nn.functional.max_pool2d GPU Tensor에 max_pool2d 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.max_pool2d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-max-pool2d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 max_pool2d 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.max_pool2d(input, kernel_size, stride=None, padding=0)</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>Any</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>kernel_size</code></td><td><code>Any</code></td><td><code>필수</code></td><td>공간 kernel 크기입니다. 정수 또는 차원별 tuple을 허용합니다.</td></tr><tr><td><code>stride</code></td><td><code>Any</code></td><td><code>None</code></td><td>kernel이 이동하는 간격입니다. 생략 가능한 pooling에서는 kernel_size를 사용합니다.</td></tr><tr><td><code>padding</code></td><td><code>Any</code></td><td><code>0</code></td><td>입력 양쪽에 추가할 0 padding 크기입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-max-pool3d" data-search="mytorch.nn.functional.max_pool3d GPU Tensor에 max_pool3d 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.max_pool3d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-max-pool3d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 max_pool3d 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.max_pool3d(input, kernel_size, stride=None, padding=0)</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>Any</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>kernel_size</code></td><td><code>Any</code></td><td><code>필수</code></td><td>공간 kernel 크기입니다. 정수 또는 차원별 tuple을 허용합니다.</td></tr><tr><td><code>stride</code></td><td><code>Any</code></td><td><code>None</code></td><td>kernel이 이동하는 간격입니다. 생략 가능한 pooling에서는 kernel_size를 사용합니다.</td></tr><tr><td><code>padding</code></td><td><code>Any</code></td><td><code>0</code></td><td>입력 양쪽에 추가할 0 padding 크기입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-avg-pool1d" data-search="mytorch.nn.functional.avg_pool1d GPU Tensor에 avg_pool1d 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.avg_pool1d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-avg-pool1d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 avg_pool1d 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.avg_pool1d(input, kernel_size, stride=None, padding=0)</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>Any</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>kernel_size</code></td><td><code>Any</code></td><td><code>필수</code></td><td>공간 kernel 크기입니다. 정수 또는 차원별 tuple을 허용합니다.</td></tr><tr><td><code>stride</code></td><td><code>Any</code></td><td><code>None</code></td><td>kernel이 이동하는 간격입니다. 생략 가능한 pooling에서는 kernel_size를 사용합니다.</td></tr><tr><td><code>padding</code></td><td><code>Any</code></td><td><code>0</code></td><td>입력 양쪽에 추가할 0 padding 크기입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-avg-pool2d" data-search="mytorch.nn.functional.avg_pool2d GPU Tensor에 avg_pool2d 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.avg_pool2d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-avg-pool2d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 avg_pool2d 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.avg_pool2d(input, kernel_size, stride=None, padding=0)</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>Any</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>kernel_size</code></td><td><code>Any</code></td><td><code>필수</code></td><td>공간 kernel 크기입니다. 정수 또는 차원별 tuple을 허용합니다.</td></tr><tr><td><code>stride</code></td><td><code>Any</code></td><td><code>None</code></td><td>kernel이 이동하는 간격입니다. 생략 가능한 pooling에서는 kernel_size를 사용합니다.</td></tr><tr><td><code>padding</code></td><td><code>Any</code></td><td><code>0</code></td><td>입력 양쪽에 추가할 0 padding 크기입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-avg-pool3d" data-search="mytorch.nn.functional.avg_pool3d GPU Tensor에 avg_pool3d 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.avg_pool3d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-avg-pool3d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 avg_pool3d 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.avg_pool3d(input, kernel_size, stride=None, padding=0)</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>Any</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>kernel_size</code></td><td><code>Any</code></td><td><code>필수</code></td><td>공간 kernel 크기입니다. 정수 또는 차원별 tuple을 허용합니다.</td></tr><tr><td><code>stride</code></td><td><code>Any</code></td><td><code>None</code></td><td>kernel이 이동하는 간격입니다. 생략 가능한 pooling에서는 kernel_size를 사용합니다.</td></tr><tr><td><code>padding</code></td><td><code>Any</code></td><td><code>0</code></td><td>입력 양쪽에 추가할 0 padding 크기입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-adaptive-max-pool1d" data-search="mytorch.nn.functional.adaptive_max_pool1d GPU Tensor에 adaptive_max_pool1d 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.adaptive_max_pool1d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-adaptive-max-pool1d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 adaptive_max_pool1d 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.adaptive_max_pool1d(input, output_size)</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>Any</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>output_size</code></td><td><code>Any</code></td><td><code>필수</code></td><td>적응형 pooling이 만들 공간 출력 크기입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-adaptive-max-pool2d" data-search="mytorch.nn.functional.adaptive_max_pool2d GPU Tensor에 adaptive_max_pool2d 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.adaptive_max_pool2d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-adaptive-max-pool2d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 adaptive_max_pool2d 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.adaptive_max_pool2d(input, output_size)</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>Any</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>output_size</code></td><td><code>Any</code></td><td><code>필수</code></td><td>적응형 pooling이 만들 공간 출력 크기입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-adaptive-max-pool3d" data-search="mytorch.nn.functional.adaptive_max_pool3d GPU Tensor에 adaptive_max_pool3d 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.adaptive_max_pool3d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-adaptive-max-pool3d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 adaptive_max_pool3d 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.adaptive_max_pool3d(input, output_size)</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>Any</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>output_size</code></td><td><code>Any</code></td><td><code>필수</code></td><td>적응형 pooling이 만들 공간 출력 크기입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-adaptive-avg-pool1d" data-search="mytorch.nn.functional.adaptive_avg_pool1d GPU Tensor에 adaptive_avg_pool1d 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.adaptive_avg_pool1d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-adaptive-avg-pool1d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 adaptive_avg_pool1d 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.adaptive_avg_pool1d(input, output_size)</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>Any</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>output_size</code></td><td><code>Any</code></td><td><code>필수</code></td><td>적응형 pooling이 만들 공간 출력 크기입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-adaptive-avg-pool2d" data-search="mytorch.nn.functional.adaptive_avg_pool2d GPU Tensor에 adaptive_avg_pool2d 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.adaptive_avg_pool2d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-adaptive-avg-pool2d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 adaptive_avg_pool2d 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.adaptive_avg_pool2d(input, output_size)</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>Any</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>output_size</code></td><td><code>Any</code></td><td><code>필수</code></td><td>적응형 pooling이 만들 공간 출력 크기입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-adaptive-avg-pool3d" data-search="mytorch.nn.functional.adaptive_avg_pool3d GPU Tensor에 adaptive_avg_pool3d 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.adaptive_avg_pool3d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-adaptive-avg-pool3d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 adaptive_avg_pool3d 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.adaptive_avg_pool3d(input, output_size)</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>Any</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>output_size</code></td><td><code>Any</code></td><td><code>필수</code></td><td>적응형 pooling이 만들 공간 출력 크기입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-functional-scaled-dot-product-attention" data-search="mytorch.nn.functional.scaled_dot_product_attention 안정적인 softmax, mask, causal, dropout을 포함한 attention 핵심 연산입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.functional.scaled_dot_product_attention</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-functional-scaled-dot-product-attention" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">안정적인 softmax, mask, causal, dropout을 포함한 attention 핵심 연산입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.functional.scaled_dot_product_attention(query, key, value, attn_mask=None, dropout_p=0.0, is_causal=False, scale=None)</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>query</code></td><td><code>Any</code></td><td><code>필수</code></td><td>attention의 query Tensor입니다.</td></tr><tr><td><code>key</code></td><td><code>Any</code></td><td><code>필수</code></td><td>attention의 key Tensor입니다.</td></tr><tr><td><code>value</code></td><td><code>Any</code></td><td><code>필수</code></td><td>attention의 value Tensor 또는 채울 스칼라 값입니다.</td></tr><tr><td><code>attn_mask</code></td><td><code>Any</code></td><td><code>None</code></td><td>query-key 위치를 제한하는 boolean 또는 additive attention mask입니다.</td></tr><tr><td><code>dropout_p</code></td><td><code>Any</code></td><td><code>0.0</code></td><td>attention probability 또는 recurrent layer 사이에 적용할 dropout 확률입니다.</td></tr><tr><td><code>is_causal</code></td><td><code>Any</code></td><td><code>False</code></td><td>True이면 미래 key를 볼 수 없도록 causal mask를 적용합니다.</td></tr><tr><td><code>scale</code></td><td><code>Any</code></td><td><code>None</code></td><td>기본 1/sqrt(head_dim)을 대체할 attention score 배율입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    </div>
+      <nav class="page-end"><a href="../index.html">← 전체 모듈 목록으로</a></nav>
+    </main>
+    <button class="back-to-top" type="button" aria-label="맨 위로">↑</button>
+  </div>
+  <footer>MyTorch 0.7.0 · GPU-only educational framework · API는 현재 소스 시그니처에서 생성되었습니다.</footer>
+  <script src="../assets/js/search-index.js"></script>
+  <script src="../assets/js/docs.js"></script>
+</body>
+</html>

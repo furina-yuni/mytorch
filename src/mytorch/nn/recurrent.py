@@ -9,10 +9,10 @@ import cupy as cp
 
 from mytorch.tensor import Tensor, rand, stack, zeros
 
-from ._functional import activations as A
-from ._functional import layers as L
-from ._modules.base import Module, Parameter
-from ._modules.containers import ModuleList
+from .functional import activations as A
+from .functional import layers as L
+from .modules.base import Module, Parameter
+from .modules.containers import ModuleList
 
 
 class _RNNCellBase(Module):

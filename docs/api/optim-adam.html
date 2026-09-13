@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Adam, AdamW, Adamax, NAdam, RAdam의 moment state, bias correction, weight decay 차이를 설명합니다.">
+  <meta name="generator" content="MyTorch docs builder">
+  <title>Adam 계열 · MyTorch 0.7.0</title>
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/docs.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">본문으로 건너뛰기</a>
+  <header class="topbar">
+    <button class="menu-button" type="button" aria-label="문서 메뉴 열기" aria-expanded="false">☰</button>
+    <a class="brand" href="../index.html"><span class="brand-mark">M</span><span>MyTorch</span><span class="version">v0.7.0</span></a>
+    <div class="search-box">
+      <label class="sr-only" for="site-search">API 검색</label>
+      <input id="site-search" type="search" placeholder="API 검색…  /" autocomplete="off">
+      <div id="search-results" class="search-results" hidden></div>
+    </div>
+    <button class="theme-button" type="button" aria-label="색상 테마 전환">◐</button>
+  </header>
+  <div class="site-layout">
+    <aside class="sidebar" aria-label="문서 모듈 탐색">
+      <a class="overview-link" href="../index.html">문서 홈</a>
+      <div class="nav-group"><span>Core</span><a href="tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="autograd.html">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Runtime</span><a href="cuda.html">CUDA 상태 확인</a></div><div class="nav-group"><span>Persistence</span><a href="serialization.html">모델 저장과 불러오기</a></div><div class="nav-group"><span>Neural network</span><a href="nn-core.html">Module과 기본 계층</a><a href="nn-activations.html">활성화 함수 Module</a><a href="nn-losses.html">손실 함수 Module</a><a href="nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="nn-conv.html">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="nn-attention.html">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="nn-efficient.html">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="nn-functional-layers.html">함수형 계층 연산</a><a href="nn-functional-activations.html">함수형 활성화 연산</a><a href="nn-functional-losses.html">함수형 손실 연산</a></div><div class="nav-group"><span>Initialization</span><a href="nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="optim-optimizer.html">Optimizer 기반 클래스</a><a href="optim-sgd.html">SGD</a><a href="optim-adam.html" aria-current="page">Adam 계열</a><a href="optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="optim-classical.html">ASGD와 Rprop</a><a href="optim-modern.html">Adafactor와 Lion</a></div>
+    </aside>
+    <main id="main" class="content">
+      <header class="page-header">
+        <div class="eyebrow">Optimization · mytorch.optim.adam</div>
+        <h1>Adam 계열</h1>
+        <p>Adam, AdamW, Adamax, NAdam, RAdam의 moment state, bias correction, weight decay 차이를 설명합니다.</p>
+        <div class="page-meta"><span>MyTorch 0.7.0</span><span>9개 API 항목</span><span>CUDA 전용</span></div>
+      </header>
+      <section class="concept-panel">
+        <div><h2>이 모듈을 사용할 때 알아둘 점</h2><ul><li>Adam은 1차·2차 지수 이동 평균과 bias correction을 사용합니다.</li><li>AdamW는 gradient moment와 분리된 decoupled weight decay를 적용합니다.</li><li>NAdam은 Nesterov momentum을, RAdam은 초기 second moment 분산을 rectification합니다.</li></ul></div>
+        <div><h2>기본 예제</h2><pre><code>optimizer = mt.optim.AdamW(
+    model.parameters(), lr=3e-4, betas=(0.9, 0.999),
+    eps=1e-8, weight_decay=0.01,
+)</code></pre></div>
+      </section>
+      <nav class="page-toc" aria-label="이 페이지의 API"><strong>페이지 목차</strong><div><a href="#api-mytorch-optim-adam"><code>Adam</code></a><a href="#api-mytorch-optim-adam-step"><code>Adam.step</code></a><a href="#api-mytorch-optim-adamw"><code>AdamW</code></a><a href="#api-mytorch-optim-adamax"><code>Adamax</code></a><a href="#api-mytorch-optim-adamax-step"><code>Adamax.step</code></a><a href="#api-mytorch-optim-nadam"><code>NAdam</code></a><a href="#api-mytorch-optim-nadam-step"><code>NAdam.step</code></a><a href="#api-mytorch-optim-radam"><code>RAdam</code></a><a href="#api-mytorch-optim-radam-step"><code>RAdam.step</code></a></div></nav>
+      <div class="api-list">
+      <article class="api-card searchable" id="api-mytorch-optim-adam" data-search="mytorch.optim.Adam 1차·2차 moment의 지수 이동 평균과 bias correction으로 Parameter를 갱신합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.optim.Adam</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-adam" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">1차·2차 moment의 지수 이동 평균과 bias correction으로 Parameter를 갱신합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.Adam(params: &#x27;Iterable[Any]&#x27;, lr: &#x27;float&#x27; = 0.001, betas: &#x27;tuple[float, float]&#x27; = (0.9, 0.999), eps: &#x27;float&#x27; = 1e-08, weight_decay: &#x27;float&#x27; = 0.0, amsgrad: &#x27;bool&#x27; = False, maximize: &#x27;bool&#x27; = False) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>params</code></td><td><code>&#x27;Iterable[Any]&#x27;</code></td><td><code>필수</code></td><td>최적화할 Parameter iterable 또는 parameter-group dict iterable입니다.</td></tr><tr><td><code>lr</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.001</code></td><td>optimizer learning rate입니다. 양수여야 합니다.</td></tr><tr><td><code>betas</code></td><td><code>&#x27;tuple[float, float]&#x27;</code></td><td><code>(0.9, 0.999)</code></td><td>moment 추정에 사용하는 두 지수 감쇠 계수의 tuple입니다.</td></tr><tr><td><code>eps</code></td><td><code>&#x27;float&#x27;</code></td><td><code>1e-08</code></td><td>0으로 나누거나 매우 작은 값에서 불안정해지는 것을 막는 양의 상수입니다.</td></tr><tr><td><code>weight_decay</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.0</code></td><td>가중치 감쇠 계수입니다. optimizer에 따라 coupled 또는 decoupled 방식입니다.</td></tr><tr><td><code>amsgrad</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>False</code></td><td>True이면 과거 second moment 최댓값을 유지하는 AMSGrad 변형을 사용합니다.</td></tr><tr><td><code>maximize</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>False</code></td><td>True이면 목적함수를 최소화하지 않고 최대화하는 방향으로 갱신합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 Adam 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-optim-adam-step" data-search="mytorch.optim.Adam.step Adam 객체의 step 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.optim.Adam.step</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-adam-step" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Adam 객체의 step 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.Adam.step(self) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>None. 객체의 gradient, 난수 상태, 파일 또는 Parameter를 변경합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-optim-adamw" data-search="mytorch.optim.AdamW Adam moment와 분리된 decoupled weight decay를 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.optim.AdamW</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-adamw" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Adam moment와 분리된 decoupled weight decay를 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.AdamW(params: &#x27;Iterable[Any]&#x27;, lr: &#x27;float&#x27; = 0.001, betas: &#x27;tuple[float, float]&#x27; = (0.9, 0.999), eps: &#x27;float&#x27; = 1e-08, weight_decay: &#x27;float&#x27; = 0.01, amsgrad: &#x27;bool&#x27; = False, maximize: &#x27;bool&#x27; = False) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>params</code></td><td><code>&#x27;Iterable[Any]&#x27;</code></td><td><code>필수</code></td><td>최적화할 Parameter iterable 또는 parameter-group dict iterable입니다.</td></tr><tr><td><code>lr</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.001</code></td><td>optimizer learning rate입니다. 양수여야 합니다.</td></tr><tr><td><code>betas</code></td><td><code>&#x27;tuple[float, float]&#x27;</code></td><td><code>(0.9, 0.999)</code></td><td>moment 추정에 사용하는 두 지수 감쇠 계수의 tuple입니다.</td></tr><tr><td><code>eps</code></td><td><code>&#x27;float&#x27;</code></td><td><code>1e-08</code></td><td>0으로 나누거나 매우 작은 값에서 불안정해지는 것을 막는 양의 상수입니다.</td></tr><tr><td><code>weight_decay</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.01</code></td><td>가중치 감쇠 계수입니다. optimizer에 따라 coupled 또는 decoupled 방식입니다.</td></tr><tr><td><code>amsgrad</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>False</code></td><td>True이면 과거 second moment 최댓값을 유지하는 AMSGrad 변형을 사용합니다.</td></tr><tr><td><code>maximize</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>False</code></td><td>True이면 목적함수를 최소화하지 않고 최대화하는 방향으로 갱신합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 AdamW 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-optim-adamax" data-search="mytorch.optim.Adamax 무한 노름 기반 second moment를 사용하는 Adam 변형입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.optim.Adamax</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-adamax" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">무한 노름 기반 second moment를 사용하는 Adam 변형입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.Adamax(params: &#x27;Iterable[Any]&#x27;, lr: &#x27;float&#x27; = 0.002, betas: &#x27;tuple[float, float]&#x27; = (0.9, 0.999), eps: &#x27;float&#x27; = 1e-08, weight_decay: &#x27;float&#x27; = 0.0, maximize: &#x27;bool&#x27; = False) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>params</code></td><td><code>&#x27;Iterable[Any]&#x27;</code></td><td><code>필수</code></td><td>최적화할 Parameter iterable 또는 parameter-group dict iterable입니다.</td></tr><tr><td><code>lr</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.002</code></td><td>optimizer learning rate입니다. 양수여야 합니다.</td></tr><tr><td><code>betas</code></td><td><code>&#x27;tuple[float, float]&#x27;</code></td><td><code>(0.9, 0.999)</code></td><td>moment 추정에 사용하는 두 지수 감쇠 계수의 tuple입니다.</td></tr><tr><td><code>eps</code></td><td><code>&#x27;float&#x27;</code></td><td><code>1e-08</code></td><td>0으로 나누거나 매우 작은 값에서 불안정해지는 것을 막는 양의 상수입니다.</td></tr><tr><td><code>weight_decay</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.0</code></td><td>가중치 감쇠 계수입니다. optimizer에 따라 coupled 또는 decoupled 방식입니다.</td></tr><tr><td><code>maximize</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>False</code></td><td>True이면 목적함수를 최소화하지 않고 최대화하는 방향으로 갱신합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 Adamax 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-optim-adamax-step" data-search="mytorch.optim.Adamax.step Adamax 객체의 step 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.optim.Adamax.step</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-adamax-step" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Adamax 객체의 step 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.Adamax.step(self) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>None. 객체의 gradient, 난수 상태, 파일 또는 Parameter를 변경합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-optim-nadam" data-search="mytorch.optim.NAdam Adam의 adaptive moment에 Nesterov momentum을 결합합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.optim.NAdam</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-nadam" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Adam의 adaptive moment에 Nesterov momentum을 결합합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.NAdam(params: &#x27;Iterable[Any]&#x27;, lr: &#x27;float&#x27; = 0.002, betas: &#x27;tuple[float, float]&#x27; = (0.9, 0.999), eps: &#x27;float&#x27; = 1e-08, weight_decay: &#x27;float&#x27; = 0.0, momentum_decay: &#x27;float&#x27; = 0.004, decoupled_weight_decay: &#x27;bool&#x27; = False, maximize: &#x27;bool&#x27; = False) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>params</code></td><td><code>&#x27;Iterable[Any]&#x27;</code></td><td><code>필수</code></td><td>최적화할 Parameter iterable 또는 parameter-group dict iterable입니다.</td></tr><tr><td><code>lr</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.002</code></td><td>optimizer learning rate입니다. 양수여야 합니다.</td></tr><tr><td><code>betas</code></td><td><code>&#x27;tuple[float, float]&#x27;</code></td><td><code>(0.9, 0.999)</code></td><td>moment 추정에 사용하는 두 지수 감쇠 계수의 tuple입니다.</td></tr><tr><td><code>eps</code></td><td><code>&#x27;float&#x27;</code></td><td><code>1e-08</code></td><td>0으로 나누거나 매우 작은 값에서 불안정해지는 것을 막는 양의 상수입니다.</td></tr><tr><td><code>weight_decay</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.0</code></td><td>가중치 감쇠 계수입니다. optimizer에 따라 coupled 또는 decoupled 방식입니다.</td></tr><tr><td><code>momentum_decay</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.004</code></td><td>NAdam의 momentum schedule이 step에 따라 변하는 속도입니다.</td></tr><tr><td><code>decoupled_weight_decay</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>False</code></td><td>True이면 gradient에 섞지 않고 Parameter에 직접 weight decay를 적용합니다.</td></tr><tr><td><code>maximize</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>False</code></td><td>True이면 목적함수를 최소화하지 않고 최대화하는 방향으로 갱신합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 NAdam 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-optim-nadam-step" data-search="mytorch.optim.NAdam.step NAdam 객체의 step 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.optim.NAdam.step</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-nadam-step" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">NAdam 객체의 step 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.NAdam.step(self) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>None. 객체의 gradient, 난수 상태, 파일 또는 Parameter를 변경합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-optim-radam" data-search="mytorch.optim.RAdam 학습 초기 adaptive learning rate의 분산을 rectification하는 Adam 변형입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.optim.RAdam</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-radam" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">학습 초기 adaptive learning rate의 분산을 rectification하는 Adam 변형입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.RAdam(params: &#x27;Iterable[Any]&#x27;, lr: &#x27;float&#x27; = 0.001, betas: &#x27;tuple[float, float]&#x27; = (0.9, 0.999), eps: &#x27;float&#x27; = 1e-08, weight_decay: &#x27;float&#x27; = 0.0, decoupled_weight_decay: &#x27;bool&#x27; = False, maximize: &#x27;bool&#x27; = False) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>params</code></td><td><code>&#x27;Iterable[Any]&#x27;</code></td><td><code>필수</code></td><td>최적화할 Parameter iterable 또는 parameter-group dict iterable입니다.</td></tr><tr><td><code>lr</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.001</code></td><td>optimizer learning rate입니다. 양수여야 합니다.</td></tr><tr><td><code>betas</code></td><td><code>&#x27;tuple[float, float]&#x27;</code></td><td><code>(0.9, 0.999)</code></td><td>moment 추정에 사용하는 두 지수 감쇠 계수의 tuple입니다.</td></tr><tr><td><code>eps</code></td><td><code>&#x27;float&#x27;</code></td><td><code>1e-08</code></td><td>0으로 나누거나 매우 작은 값에서 불안정해지는 것을 막는 양의 상수입니다.</td></tr><tr><td><code>weight_decay</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.0</code></td><td>가중치 감쇠 계수입니다. optimizer에 따라 coupled 또는 decoupled 방식입니다.</td></tr><tr><td><code>decoupled_weight_decay</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>False</code></td><td>True이면 gradient에 섞지 않고 Parameter에 직접 weight decay를 적용합니다.</td></tr><tr><td><code>maximize</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>False</code></td><td>True이면 목적함수를 최소화하지 않고 최대화하는 방향으로 갱신합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 RAdam 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-optim-radam-step" data-search="mytorch.optim.RAdam.step RAdam 객체의 step 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.optim.RAdam.step</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-radam-step" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">RAdam 객체의 step 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.RAdam.step(self) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>None. 객체의 gradient, 난수 상태, 파일 또는 Parameter를 변경합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    </div>
+      <nav class="page-end"><a href="../index.html">← 전체 모듈 목록으로</a></nav>
+    </main>
+    <button class="back-to-top" type="button" aria-label="맨 위로">↑</button>
+  </div>
+  <footer>MyTorch 0.7.0 · GPU-only educational framework · API는 현재 소스 시그니처에서 생성되었습니다.</footer>
+  <script src="../assets/js/search-index.js"></script>
+  <script src="../assets/js/docs.js"></script>
+</body>
+</html>

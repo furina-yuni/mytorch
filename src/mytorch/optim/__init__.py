@@ -2,8 +2,9 @@
 
 from .adam import Adam, Adamax, AdamW, NAdam, RAdam
 from .adaptive import Adadelta, Adagrad, RMSprop
+from .classical import ASGD, Rprop
+from .modern import Adafactor, Lion
 from .optimizer import Optimizer
-from .other import ASGD, Adafactor, Lion, Rprop
 from .sgd import SGD
 
 __all__ = [

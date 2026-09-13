@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="저랭크 적응, 추론용 INT8·INT4, QAT용 BitLinear, 2-bit packed 추론, sparse mixture-of-experts 계층을 다룹니다.">
+  <meta name="generator" content="MyTorch docs builder">
+  <title>LoRA, 양자화, BitNet, MoE · MyTorch 0.7.0</title>
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/docs.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">본문으로 건너뛰기</a>
+  <header class="topbar">
+    <button class="menu-button" type="button" aria-label="문서 메뉴 열기" aria-expanded="false">☰</button>
+    <a class="brand" href="../index.html"><span class="brand-mark">M</span><span>MyTorch</span><span class="version">v0.7.0</span></a>
+    <div class="search-box">
+      <label class="sr-only" for="site-search">API 검색</label>
+      <input id="site-search" type="search" placeholder="API 검색…  /" autocomplete="off">
+      <div id="search-results" class="search-results" hidden></div>
+    </div>
+    <button class="theme-button" type="button" aria-label="색상 테마 전환">◐</button>
+  </header>
+  <div class="site-layout">
+    <aside class="sidebar" aria-label="문서 모듈 탐색">
+      <a class="overview-link" href="../index.html">문서 홈</a>
+      <div class="nav-group"><span>Core</span><a href="tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="autograd.html">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Runtime</span><a href="cuda.html">CUDA 상태 확인</a></div><div class="nav-group"><span>Persistence</span><a href="serialization.html">모델 저장과 불러오기</a></div><div class="nav-group"><span>Neural network</span><a href="nn-core.html">Module과 기본 계층</a><a href="nn-activations.html">활성화 함수 Module</a><a href="nn-losses.html">손실 함수 Module</a><a href="nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="nn-conv.html">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="nn-attention.html">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="nn-efficient.html" aria-current="page">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="nn-functional-layers.html">함수형 계층 연산</a><a href="nn-functional-activations.html">함수형 활성화 연산</a><a href="nn-functional-losses.html">함수형 손실 연산</a></div><div class="nav-group"><span>Initialization</span><a href="nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="optim-optimizer.html">Optimizer 기반 클래스</a><a href="optim-sgd.html">SGD</a><a href="optim-adam.html">Adam 계열</a><a href="optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="optim-classical.html">ASGD와 Rprop</a><a href="optim-modern.html">Adafactor와 Lion</a></div>
+    </aside>
+    <main id="main" class="content">
+      <header class="page-header">
+        <div class="eyebrow">Efficient models · mytorch.nn.modules</div>
+        <h1>LoRA, 양자화, BitNet, MoE</h1>
+        <p>저랭크 적응, 추론용 INT8·INT4, QAT용 BitLinear, 2-bit packed 추론, sparse mixture-of-experts 계층을 다룹니다.</p>
+        <div class="page-meta"><span>MyTorch 0.7.0</span><span>18개 API 항목</span><span>CUDA 전용</span></div>
+      </header>
+      <section class="concept-panel">
+        <div><h2>이 모듈을 사용할 때 알아둘 점</h2><ul><li>LoRALinear는 base 경로와 A·B 저랭크 경로를 분리하며 merge()/unmerge()는 반복 호출에도 안전합니다.</li><li>Int8Linear, Int4WeightOnlyLinear, PackedBitLinear은 추론 전용이며 requires_grad 입력을 거부합니다.</li><li>SparseMoE는 top-k expert만 실행하고 출력과 load-balancing auxiliary loss를 함께 반환합니다.</li></ul></div>
+        <div><h2>기본 예제</h2><pre><code>import mytorch as mt
+
+qat = mt.nn.BitLinear(256, 128, rms_norm=True)
+y_train = qat(mt.randn(32, 256))
+packed = qat.to_inference()
+with mt.no_grad():
+    y_infer = packed(mt.randn(32, 256))
+print(packed.compression_ratio)</code></pre></div>
+      </section>
+      <nav class="page-toc" aria-label="이 페이지의 API"><strong>페이지 목차</strong><div><a href="#api-mytorch-nn-lowranklinear"><code>LowRankLinear</code></a><a href="#api-mytorch-nn-loralinear"><code>LoRALinear</code></a><a href="#api-mytorch-nn-loralinear-merged"><code>LoRALinear.merged</code></a><a href="#api-mytorch-nn-loralinear-merge"><code>LoRALinear.merge</code></a><a href="#api-mytorch-nn-loralinear-unmerge"><code>LoRALinear.unmerge</code></a><a href="#api-mytorch-nn-swiglufeedforward"><code>SwiGLUFeedForward</code></a><a href="#api-mytorch-nn-int8linear"><code>Int8Linear</code></a><a href="#api-mytorch-nn-int8linear-from-float"><code>Int8Linear.from_float</code></a><a href="#api-mytorch-nn-int4weightonlylinear"><code>Int4WeightOnlyLinear</code></a><a href="#api-mytorch-nn-int4weightonlylinear-from-float"><code>Int4WeightOnlyLinear.from_float</code></a><a href="#api-mytorch-nn-bitlinear"><code>BitLinear</code></a><a href="#api-mytorch-nn-bitlinear-to-inference"><code>BitLinear.to_inference</code></a><a href="#api-mytorch-nn-packedbitlinear"><code>PackedBitLinear</code></a><a href="#api-mytorch-nn-packedbitlinear-from-bitlinear"><code>PackedBitLinear.from_bitlinear</code></a><a href="#api-mytorch-nn-packedbitlinear-compression-ratio"><code>PackedBitLinear.compression_ratio</code></a><a href="#api-mytorch-nn-packedbitlinear-to"><code>PackedBitLinear.to</code></a><a href="#api-mytorch-nn-topkrouter"><code>TopKRouter</code></a><a href="#api-mytorch-nn-sparsemoe"><code>SparseMoE</code></a></div></nav>
+      <div class="api-list">
+      <article class="api-card searchable" id="api-mytorch-nn-lowranklinear" data-search="mytorch.nn.LowRankLinear 두 개의 작은 행렬 곱으로 Linear weight를 저랭크 분해해 파라미터 수를 줄입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.LowRankLinear</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-lowranklinear" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">두 개의 작은 행렬 곱으로 Linear weight를 저랭크 분해해 파라미터 수를 줄입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.LowRankLinear(in_features: &#x27;int&#x27;, out_features: &#x27;int&#x27;, rank: &#x27;int&#x27;, bias: &#x27;bool&#x27; = True, *, device: &#x27;str | int&#x27; = &#x27;cuda:0&#x27;, dtype: &#x27;Any&#x27; = &lt;class &#x27;numpy.float32&#x27;&gt;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>in_features</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>각 입력 sample의 마지막 축 크기입니다.</td></tr><tr><td><code>out_features</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>각 출력 sample의 마지막 축 크기입니다.</td></tr><tr><td><code>rank</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>저랭크 분해 또는 LoRA adapter의 rank입니다.</td></tr><tr><td><code>bias</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr><tr><td><code>device</code></td><td><code>&#x27;str | int&#x27;</code></td><td><code>&#x27;cuda:0&#x27;</code></td><td>CUDA 장치입니다. &#x27;cuda:N&#x27; 문자열 또는 정수 N을 사용하며 기본값은 cuda:0입니다.</td></tr><tr><td><code>dtype</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>&lt;class &#x27;numpy.float32&#x27;&gt;</code></td><td>결과 또는 파라미터의 dtype입니다. 생략 시 생성 규칙 또는 입력 dtype을 따릅니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 LowRankLinear 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-loralinear" data-search="mytorch.nn.LoRALinear 고정 가능한 base Linear에 학습 가능한 저랭크 adapter를 더합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.LoRALinear</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-loralinear" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">고정 가능한 base Linear에 학습 가능한 저랭크 adapter를 더합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.LoRALinear(in_features: &#x27;int&#x27;, out_features: &#x27;int&#x27;, rank: &#x27;int&#x27; = 8, alpha: &#x27;float&#x27; = 16.0, dropout: &#x27;float&#x27; = 0.0, bias: &#x27;bool&#x27; = True, freeze_base: &#x27;bool&#x27; = True, *, device: &#x27;str | int&#x27; = &#x27;cuda:0&#x27;, dtype: &#x27;Any&#x27; = &lt;class &#x27;numpy.float32&#x27;&gt;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>in_features</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>각 입력 sample의 마지막 축 크기입니다.</td></tr><tr><td><code>out_features</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>각 출력 sample의 마지막 축 크기입니다.</td></tr><tr><td><code>rank</code></td><td><code>&#x27;int&#x27;</code></td><td><code>8</code></td><td>저랭크 분해 또는 LoRA adapter의 rank입니다.</td></tr><tr><td><code>alpha</code></td><td><code>&#x27;float&#x27;</code></td><td><code>16.0</code></td><td>LoRA 배율, focal 가중치 또는 optimizer 계수입니다. 문맥별 정의를 따릅니다.</td></tr><tr><td><code>dropout</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.0</code></td><td>0~1 사이 dropout 확률입니다.</td></tr><tr><td><code>bias</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr><tr><td><code>freeze_base</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 LoRA base weight의 gradient를 비활성화합니다.</td></tr><tr><td><code>device</code></td><td><code>&#x27;str | int&#x27;</code></td><td><code>&#x27;cuda:0&#x27;</code></td><td>CUDA 장치입니다. &#x27;cuda:N&#x27; 문자열 또는 정수 N을 사용하며 기본값은 cuda:0입니다.</td></tr><tr><td><code>dtype</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>&lt;class &#x27;numpy.float32&#x27;&gt;</code></td><td>결과 또는 파라미터의 dtype입니다. 생략 시 생성 규칙 또는 입력 dtype을 따릅니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 LoRALinear 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-loralinear-merged" data-search="mytorch.nn.LoRALinear.merged LoRALinear 객체의 merged 상태를 읽기 전용으로 반환합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-property">Property</span>
+            <h2><code>mytorch.nn.LoRALinear.merged</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-loralinear-merged" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">LoRALinear 객체의 merged 상태를 읽기 전용으로 반환합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.LoRALinear.merged(self) -&gt; &#x27;bool&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>현재 merged 값. 속성을 읽는 과정에서 GPU 수치 데이터를 CPU로 복사하지 않습니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-loralinear-merge" data-search="mytorch.nn.LoRALinear.merge LoRALinear 객체의 merge 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.LoRALinear.merge</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-loralinear-merge" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">LoRALinear 객체의 merge 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.LoRALinear.merge(self) -&gt; &#x27;LoRALinear&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>호출 대상 객체 자신을 반환해 method chaining을 지원합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-loralinear-unmerge" data-search="mytorch.nn.LoRALinear.unmerge LoRALinear 객체의 unmerge 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.LoRALinear.unmerge</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-loralinear-unmerge" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">LoRALinear 객체의 unmerge 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.LoRALinear.unmerge(self) -&gt; &#x27;LoRALinear&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>호출 대상 객체 자신을 반환해 method chaining을 지원합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-swiglufeedforward" data-search="mytorch.nn.SwiGLUFeedForward SwiGLU gate를 사용하는 Transformer형 feed-forward network입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.SwiGLUFeedForward</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-swiglufeedforward" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">SwiGLU gate를 사용하는 Transformer형 feed-forward network입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.SwiGLUFeedForward(input_dim: &#x27;int&#x27;, hidden_dim: &#x27;int&#x27;, output_dim: &#x27;int | None&#x27; = None, bias: &#x27;bool&#x27; = True, dropout: &#x27;float&#x27; = 0.0, *, device: &#x27;str | int&#x27; = &#x27;cuda:0&#x27;, dtype: &#x27;Any&#x27; = &lt;class &#x27;numpy.float32&#x27;&gt;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input_dim</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>입력 feature 축 크기입니다.</td></tr><tr><td><code>hidden_dim</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>feed-forward 또는 expert 내부의 hidden feature 크기입니다.</td></tr><tr><td><code>output_dim</code></td><td><code>&#x27;int | None&#x27;</code></td><td><code>None</code></td><td>출력 feature 축 크기입니다.</td></tr><tr><td><code>bias</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr><tr><td><code>dropout</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.0</code></td><td>0~1 사이 dropout 확률입니다.</td></tr><tr><td><code>device</code></td><td><code>&#x27;str | int&#x27;</code></td><td><code>&#x27;cuda:0&#x27;</code></td><td>CUDA 장치입니다. &#x27;cuda:N&#x27; 문자열 또는 정수 N을 사용하며 기본값은 cuda:0입니다.</td></tr><tr><td><code>dtype</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>&lt;class &#x27;numpy.float32&#x27;&gt;</code></td><td>결과 또는 파라미터의 dtype입니다. 생략 시 생성 규칙 또는 입력 dtype을 따릅니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 SwiGLUFeedForward 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-int8linear" data-search="mytorch.nn.Int8Linear per-token activation과 per-output-channel weight 양자화를 사용하는 추론 전용 Linear입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.Int8Linear</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-int8linear" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">per-token activation과 per-output-channel weight 양자화를 사용하는 추론 전용 Linear입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Int8Linear(packed_weight: &#x27;Tensor&#x27;, weight_scale: &#x27;Tensor&#x27;, bias: &#x27;Tensor | None&#x27; = None) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>packed_weight</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>여러 저정밀 weight 값을 byte 단위로 압축한 uint8 Tensor입니다.</td></tr><tr><td><code>weight_scale</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>양자화 weight를 실수 scale로 복원하기 위한 Tensor입니다.</td></tr><tr><td><code>bias</code></td><td><code>&#x27;Tensor | None&#x27;</code></td><td><code>None</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 Int8Linear 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-int8linear-from-float" data-search="mytorch.nn.Int8Linear.from_float Int8Linear 객체의 from_float 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.Int8Linear.from_float</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-int8linear-from-float" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Int8Linear 객체의 from_float 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Int8Linear.from_float(cls, layer: &#x27;Linear&#x27;) -&gt; &#x27;Int8Linear&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>layer</code></td><td><code>&#x27;Linear&#x27;</code></td><td><code>필수</code></td><td>변환하거나 복제할 기존 계층입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-int4weightonlylinear" data-search="mytorch.nn.Int4WeightOnlyLinear groupwise 4-bit packed weight를 사용하는 추론 전용 Linear입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.Int4WeightOnlyLinear</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-int4weightonlylinear" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">groupwise 4-bit packed weight를 사용하는 추론 전용 Linear입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Int4WeightOnlyLinear(packed_weight: &#x27;Tensor&#x27;, weight_scale: &#x27;Tensor&#x27;, in_features: &#x27;int&#x27;, out_features: &#x27;int&#x27;, group_size: &#x27;int&#x27;, bias: &#x27;Tensor | None&#x27; = None) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>packed_weight</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>여러 저정밀 weight 값을 byte 단위로 압축한 uint8 Tensor입니다.</td></tr><tr><td><code>weight_scale</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>양자화 weight를 실수 scale로 복원하기 위한 Tensor입니다.</td></tr><tr><td><code>in_features</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>각 입력 sample의 마지막 축 크기입니다.</td></tr><tr><td><code>out_features</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>각 출력 sample의 마지막 축 크기입니다.</td></tr><tr><td><code>group_size</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>INT4 weight scale을 공유하는 연속 weight 원소 수입니다.</td></tr><tr><td><code>bias</code></td><td><code>&#x27;Tensor | None&#x27;</code></td><td><code>None</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 Int4WeightOnlyLinear 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-int4weightonlylinear-from-float" data-search="mytorch.nn.Int4WeightOnlyLinear.from_float Int4WeightOnlyLinear 객체의 from_float 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.Int4WeightOnlyLinear.from_float</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-int4weightonlylinear-from-float" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Int4WeightOnlyLinear 객체의 from_float 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Int4WeightOnlyLinear.from_float(cls, layer: &#x27;Linear&#x27;, group_size: &#x27;int&#x27; = 32) -&gt; &#x27;Int4WeightOnlyLinear&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>layer</code></td><td><code>&#x27;Linear&#x27;</code></td><td><code>필수</code></td><td>변환하거나 복제할 기존 계층입니다.</td></tr><tr><td><code>group_size</code></td><td><code>&#x27;int&#x27;</code></td><td><code>32</code></td><td>INT4 weight scale을 공유하는 연속 weight 원소 수입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-bitlinear" data-search="mytorch.nn.BitLinear ternary weight와 INT8 activation의 straight-through estimator로 학습하는 BitNet 계층입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.BitLinear</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-bitlinear" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">ternary weight와 INT8 activation의 straight-through estimator로 학습하는 BitNet 계층입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.BitLinear(in_features: &#x27;int&#x27;, out_features: &#x27;int&#x27;, bias: &#x27;bool&#x27; = False, use_rms_norm: &#x27;bool&#x27; = True, eps: &#x27;float&#x27; = 1e-05, *, device: &#x27;str | int&#x27; = &#x27;cuda:0&#x27;, dtype: &#x27;Any&#x27; = &lt;class &#x27;numpy.float32&#x27;&gt;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>in_features</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>각 입력 sample의 마지막 축 크기입니다.</td></tr><tr><td><code>out_features</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>각 출력 sample의 마지막 축 크기입니다.</td></tr><tr><td><code>bias</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>False</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr><tr><td><code>use_rms_norm</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 양자화 전에 입력 feature에 RMSNorm을 적용합니다.</td></tr><tr><td><code>eps</code></td><td><code>&#x27;float&#x27;</code></td><td><code>1e-05</code></td><td>0으로 나누거나 매우 작은 값에서 불안정해지는 것을 막는 양의 상수입니다.</td></tr><tr><td><code>device</code></td><td><code>&#x27;str | int&#x27;</code></td><td><code>&#x27;cuda:0&#x27;</code></td><td>CUDA 장치입니다. &#x27;cuda:N&#x27; 문자열 또는 정수 N을 사용하며 기본값은 cuda:0입니다.</td></tr><tr><td><code>dtype</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>&lt;class &#x27;numpy.float32&#x27;&gt;</code></td><td>결과 또는 파라미터의 dtype입니다. 생략 시 생성 규칙 또는 입력 dtype을 따릅니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 BitLinear 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-bitlinear-to-inference" data-search="mytorch.nn.BitLinear.to_inference BitLinear 객체의 to_inference 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.BitLinear.to_inference</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-bitlinear-to-inference" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">BitLinear 객체의 to_inference 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.BitLinear.to_inference(self) -&gt; &#x27;PackedBitLinear&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-packedbitlinear" data-search="mytorch.nn.PackedBitLinear ternary weight를 2-bit로 압축하고 NVRTC kernel에서 직접 계산하는 추론 계층입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.PackedBitLinear</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-packedbitlinear" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">ternary weight를 2-bit로 압축하고 NVRTC kernel에서 직접 계산하는 추론 계층입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.PackedBitLinear(packed_weight: &#x27;Tensor&#x27;, weight_scale: &#x27;Tensor&#x27;, in_features: &#x27;int&#x27;, out_features: &#x27;int&#x27;, bias: &#x27;Tensor | None&#x27; = None, rms_weight: &#x27;Tensor | None&#x27; = None, eps: &#x27;float&#x27; = 1e-05, compute_dtype: &#x27;Any&#x27; = &lt;class &#x27;numpy.float32&#x27;&gt;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>packed_weight</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>여러 저정밀 weight 값을 byte 단위로 압축한 uint8 Tensor입니다.</td></tr><tr><td><code>weight_scale</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>양자화 weight를 실수 scale로 복원하기 위한 Tensor입니다.</td></tr><tr><td><code>in_features</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>각 입력 sample의 마지막 축 크기입니다.</td></tr><tr><td><code>out_features</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>각 출력 sample의 마지막 축 크기입니다.</td></tr><tr><td><code>bias</code></td><td><code>&#x27;Tensor | None&#x27;</code></td><td><code>None</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr><tr><td><code>rms_weight</code></td><td><code>&#x27;Tensor | None&#x27;</code></td><td><code>None</code></td><td>선택적 RMSNorm의 학습·저장 scale Tensor입니다.</td></tr><tr><td><code>eps</code></td><td><code>&#x27;float&#x27;</code></td><td><code>1e-05</code></td><td>0으로 나누거나 매우 작은 값에서 불안정해지는 것을 막는 양의 상수입니다.</td></tr><tr><td><code>compute_dtype</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>&lt;class &#x27;numpy.float32&#x27;&gt;</code></td><td>packed 또는 quantized kernel이 누산·출력에 사용할 실수 dtype입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 PackedBitLinear 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-packedbitlinear-from-bitlinear" data-search="mytorch.nn.PackedBitLinear.from_bitlinear PackedBitLinear 객체의 from_bitlinear 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.PackedBitLinear.from_bitlinear</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-packedbitlinear-from-bitlinear" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">PackedBitLinear 객체의 from_bitlinear 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.PackedBitLinear.from_bitlinear(cls, layer: &#x27;BitLinear&#x27;) -&gt; &#x27;PackedBitLinear&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>layer</code></td><td><code>&#x27;BitLinear&#x27;</code></td><td><code>필수</code></td><td>변환하거나 복제할 기존 계층입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-packedbitlinear-compression-ratio" data-search="mytorch.nn.PackedBitLinear.compression_ratio PackedBitLinear 객체의 compression_ratio 상태를 읽기 전용으로 반환합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-property">Property</span>
+            <h2><code>mytorch.nn.PackedBitLinear.compression_ratio</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-packedbitlinear-compression-ratio" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">PackedBitLinear 객체의 compression_ratio 상태를 읽기 전용으로 반환합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.PackedBitLinear.compression_ratio(self) -&gt; &#x27;float&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>현재 compression_ratio 값. 속성을 읽는 과정에서 GPU 수치 데이터를 CPU로 복사하지 않습니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-packedbitlinear-to" data-search="mytorch.nn.PackedBitLinear.to PackedBitLinear 객체의 to 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.PackedBitLinear.to</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-packedbitlinear-to" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">PackedBitLinear 객체의 to 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.PackedBitLinear.to(self, device: &#x27;str | int | None&#x27; = None, dtype: &#x27;Any&#x27; = None) -&gt; &#x27;PackedBitLinear&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>device</code></td><td><code>&#x27;str | int | None&#x27;</code></td><td><code>None</code></td><td>CUDA 장치입니다. &#x27;cuda:N&#x27; 문자열 또는 정수 N을 사용하며 기본값은 cuda:0입니다.</td></tr><tr><td><code>dtype</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>None</code></td><td>결과 또는 파라미터의 dtype입니다. 생략 시 생성 규칙 또는 입력 dtype을 따릅니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>호출 대상 객체 자신을 반환해 method chaining을 지원합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-topkrouter" data-search="mytorch.nn.TopKRouter 각 token에 대한 expert score를 계산하고 확률이 높은 k개 expert를 선택합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.TopKRouter</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-topkrouter" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">각 token에 대한 expert score를 계산하고 확률이 높은 k개 expert를 선택합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.TopKRouter(model_dim: &#x27;int&#x27;, num_experts: &#x27;int&#x27;, top_k: &#x27;int&#x27; = 2, jitter_noise: &#x27;float&#x27; = 0.0, *, device: &#x27;str | int&#x27; = &#x27;cuda:0&#x27;, dtype: &#x27;Any&#x27; = &lt;class &#x27;numpy.float32&#x27;&gt;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>model_dim</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>MoE router와 expert가 공유하는 token feature 차원입니다.</td></tr><tr><td><code>num_experts</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>MoE가 보유할 expert Module 수입니다.</td></tr><tr><td><code>top_k</code></td><td><code>&#x27;int&#x27;</code></td><td><code>2</code></td><td>token마다 선택할 expert 수입니다.</td></tr><tr><td><code>jitter_noise</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.0</code></td><td>routing score에 곱하는 학습용 무작위 noise의 최대 상대 크기입니다.</td></tr><tr><td><code>device</code></td><td><code>&#x27;str | int&#x27;</code></td><td><code>&#x27;cuda:0&#x27;</code></td><td>CUDA 장치입니다. &#x27;cuda:N&#x27; 문자열 또는 정수 N을 사용하며 기본값은 cuda:0입니다.</td></tr><tr><td><code>dtype</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>&lt;class &#x27;numpy.float32&#x27;&gt;</code></td><td>결과 또는 파라미터의 dtype입니다. 생략 시 생성 규칙 또는 입력 dtype을 따릅니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 TopKRouter 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-sparsemoe" data-search="mytorch.nn.SparseMoE 선택된 expert만 실행하고 routing 가중합과 load-balance loss를 반환합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.SparseMoE</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-sparsemoe" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">선택된 expert만 실행하고 routing 가중합과 load-balance loss를 반환합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.SparseMoE(model_dim: &#x27;int&#x27;, hidden_dim: &#x27;int&#x27;, num_experts: &#x27;int&#x27;, top_k: &#x27;int&#x27; = 2, router_jitter: &#x27;float&#x27; = 0.0, *, device: &#x27;str | int&#x27; = &#x27;cuda:0&#x27;, dtype: &#x27;Any&#x27; = &lt;class &#x27;numpy.float32&#x27;&gt;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>model_dim</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>MoE router와 expert가 공유하는 token feature 차원입니다.</td></tr><tr><td><code>hidden_dim</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>feed-forward 또는 expert 내부의 hidden feature 크기입니다.</td></tr><tr><td><code>num_experts</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>MoE가 보유할 expert Module 수입니다.</td></tr><tr><td><code>top_k</code></td><td><code>&#x27;int&#x27;</code></td><td><code>2</code></td><td>token마다 선택할 expert 수입니다.</td></tr><tr><td><code>router_jitter</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.0</code></td><td>MoE router 학습 시 사용하는 multiplicative jitter noise 크기입니다.</td></tr><tr><td><code>device</code></td><td><code>&#x27;str | int&#x27;</code></td><td><code>&#x27;cuda:0&#x27;</code></td><td>CUDA 장치입니다. &#x27;cuda:N&#x27; 문자열 또는 정수 N을 사용하며 기본값은 cuda:0입니다.</td></tr><tr><td><code>dtype</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>&lt;class &#x27;numpy.float32&#x27;&gt;</code></td><td>결과 또는 파라미터의 dtype입니다. 생략 시 생성 규칙 또는 입력 dtype을 따릅니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 SparseMoE 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    </div>
+      <nav class="page-end"><a href="../index.html">← 전체 모듈 목록으로</a></nav>
+    </main>
+    <button class="back-to-top" type="button" aria-label="맨 위로">↑</button>
+  </div>
+  <footer>MyTorch 0.7.0 · GPU-only educational framework · API는 현재 소스 시그니처에서 생성되었습니다.</footer>
+  <script src="../assets/js/search-index.js"></script>
+  <script src="../assets/js/docs.js"></script>
+</body>
+</html>

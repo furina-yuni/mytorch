@@ -1,7 +1,7 @@
 # MyTorch
 
 > 한국어 API 레퍼런스는 `python scripts/build_docs.py` 실행 후
-> [MyTorch 0.7.0 HTML 문서](build/docs/index.html)에서 확인할 수 있습니다.
+> [MyTorch 0.7.0 HTML 문서](docs/index.html)에서 확인할 수 있습니다.
 
 NVIDIA GPU에서만 수치 연산을 수행하는 교육용 Tensor 및 자동미분 프레임워크입니다.
 현재 버전 0.7.0은 GPU Tensor와 자동미분뿐 아니라 CNN, RNN/LSTM/GRU,
@@ -10,13 +10,13 @@ Transformer Encoder, 정규화, LoRA, BitNet, 저정밀 추론과 MoE를 제공�
 ## 저장소 구조
 
 - `src/mytorch/_tensor`: 생성, 원소별 연산, shape/indexing, 축소, 선형대수 구현
-- `src/mytorch/nn/_functional`: 활성화, 계층 연산, 손실 함수 구현
-- `src/mytorch/nn/_modules`: 기본 Module부터 CNN, Transformer, BitNet, MoE 계층
+- `src/mytorch/nn/functional`: 활성화, 계층 연산, 손실 함수 구현
+- `src/mytorch/nn/modules`: 기본 Module부터 CNN, Transformer, BitNet, MoE 계층
 - `src/mytorch/optim`: 공통 optimizer 기반과 알고리즘 계열별 구현
 - `tests/unit`, `tests/integration`, `tests/gpu`: 단위, 학습 통합, CUDA 시스템 검증
 
-기존의 `mytorch.tensor`, `mytorch.nn.functional`, `mytorch.nn.modules`와 계층별
-submodule은 공개 호환 façade로 유지되므로 이전 import 코드는 그대로 동작합니다.
+중복된 호환 façade는 제거했으며 공개 API는 `mytorch`, `mytorch.nn`,
+`mytorch.nn.functional`, `mytorch.optim`에서 직접 제공합니다.
 
 ## 빠른 예제
 
@@ -197,7 +197,7 @@ NPZ에는 Parameter와 persistent buffer만 저장됩니다. BatchNorm running �
 
 ## API 문서 관리
 
-생성된 문서는 [문서 홈](build/docs/index.html)과 21개의 모듈·기능별 상세 페이지로 구성됩니다.
+생성된 문서는 [문서 홈](docs/index.html)과 22개의 모듈·기능별 상세 페이지로 구성됩니다.
 설명 원본은 `docs/content`, 공통 디자인은 `docs/assets/css`, 검색·테마·모바일
 동작은 `docs/assets/js`에 분리되어 있습니다. HTML은 현재 Python 시그니처를
 읽어 생성하므로 코드와 문서의 인자 목록이 어긋나는 것을 줄일 수 있습니다.
@@ -205,10 +205,10 @@ NPZ에는 Parameter와 persistent buffer만 저장됩니다. BatchNorm running �
 ```powershell
 python scripts/build_docs.py
 python scripts/validate_docs.py
-python -m http.server 8765 --directory build/docs
+python -m http.server 8765 --directory docs
 ```
 
-첫 명령은 설명 데이터와 실제 공개 API를 합쳐 `build/docs`에 정적 HTML을 만들고, 두 번째
+첫 명령은 설명 데이터와 실제 공개 API를 합쳐 `docs`에 정적 HTML을 만들고, 두 번째
 명령은 버전, API 누락, 페이지·anchor·asset 링크, inline CSS/JavaScript가 없는지
 검사합니다. 세 번째 명령으로 로컬 미리보기 서버를 열 수 있습니다.
 

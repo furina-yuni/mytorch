@@ -6,7 +6,7 @@ import math
 from collections.abc import Iterable, Iterator
 from typing import Any
 
-from mytorch.nn._modules.base import Parameter
+from mytorch.nn.modules.base import Parameter
 
 
 def require_real(

@@ -117,10 +117,16 @@
     },
     {
       "slug": "nn-basic",
-      "module": "mytorch.nn.basic",
+      "module": "mytorch.nn.modules",
       "title": "임베딩, Dropout, 정규화",
       "eyebrow": "Neural network",
       "summary": "Bilinear와 LazyLinear, 임베딩, 확률적 정규화, Batch·Layer·RMS·Group·Instance 정규화 계층을 설명합니다.",
+      "include": [
+        "Bilinear", "LazyLinear", "Embedding", "EmbeddingBag", "Dropout",
+        "Dropout1d", "Dropout2d", "Dropout3d", "StochasticDepth", "LayerNorm",
+        "RMSNorm", "GroupNorm", "BatchNorm1d", "BatchNorm2d", "BatchNorm3d",
+        "InstanceNorm1d", "InstanceNorm2d", "InstanceNorm3d"
+      ],
       "concepts": [
         "Embedding은 int32 또는 int64 인덱스를 받아 마지막 축에 embedding_dim을 추가하며 중복 인덱스의 gradient를 scatter-add합니다.",
         "Dropout 계열은 training 모드에서만 마스크를 적용하고 eval 모드에서는 입력을 그대로 반환합니다.",
@@ -130,10 +136,17 @@
     },
     {
       "slug": "nn-conv",
-      "module": "mytorch.nn.conv",
+      "module": "mytorch.nn.modules",
       "title": "Convolution과 Pooling",
       "eyebrow": "Vision",
       "summary": "1D·2D·3D 합성곱, 전치 합성곱, 고정·적응형 pooling 계층의 입력 shape와 공간 크기 계산을 설명합니다.",
+      "include": [
+        "Conv1d", "Conv2d", "Conv3d", "ConvTranspose1d", "ConvTranspose2d",
+        "ConvTranspose3d", "MaxPool1d", "MaxPool2d", "MaxPool3d", "AvgPool1d",
+        "AvgPool2d", "AvgPool3d", "AdaptiveMaxPool1d", "AdaptiveMaxPool2d",
+        "AdaptiveMaxPool3d", "AdaptiveAvgPool1d", "AdaptiveAvgPool2d",
+        "AdaptiveAvgPool3d"
+      ],
       "concepts": [
         "ConvNd 입력은 (N, C, 공간축...) 형식이며 groups는 in_channels와 out_channels를 모두 나누어야 합니다.",
         "padding, stride, dilation은 정수 또는 공간 차원 수와 같은 길이의 tuple을 허용합니다.",
@@ -156,10 +169,14 @@
     },
     {
       "slug": "nn-attention",
-      "module": "mytorch.nn.attention",
+      "module": "mytorch.nn.modules",
       "title": "Attention, Transformer, RoPE",
       "eyebrow": "Transformer",
       "summary": "Scaled dot-product attention, multi-head projection, Transformer Encoder, rotary position embedding을 설명합니다.",
+      "include": [
+        "MultiheadAttention", "TransformerEncoderLayer", "TransformerEncoder",
+        "RotaryEmbedding", "apply_rotary_pos_emb"
+      ],
       "concepts": [
         "boolean mask의 True는 허용 위치, False는 차단 위치입니다. additive mask는 attention score에 직접 더합니다.",
         "완전히 마스킹된 query 행은 NaN 대신 0 출력을 생성합니다.",
@@ -169,10 +186,15 @@
     },
     {
       "slug": "nn-efficient",
-      "module": "mytorch.nn.efficient",
+      "module": "mytorch.nn.modules",
       "title": "LoRA, 양자화, BitNet, MoE",
       "eyebrow": "Efficient models",
       "summary": "저랭크 적응, 추론용 INT8·INT4, QAT용 BitLinear, 2-bit packed 추론, sparse mixture-of-experts 계층을 다룹니다.",
+      "include": [
+        "LowRankLinear", "LoRALinear", "SwiGLUFeedForward", "Int8Linear",
+        "Int4WeightOnlyLinear", "BitLinear", "PackedBitLinear", "TopKRouter",
+        "SparseMoE"
+      ],
       "concepts": [
         "LoRALinear는 base 경로와 A·B 저랭크 경로를 분리하며 merge()/unmerge()는 반복 호출에도 안전합니다.",
         "Int8Linear, Int4WeightOnlyLinear, PackedBitLinear은 추론 전용이며 requires_grad 입력을 거부합니다.",
@@ -311,15 +333,27 @@
       "example": "optimizer = mt.optim.RMSprop(\n    model.parameters(), lr=1e-3, alpha=0.99,\n    eps=1e-8, momentum=0.9, centered=False,\n)"
     },
     {
-      "slug": "optim-other",
-      "module": "mytorch.optim.other",
-      "title": "ASGD, Rprop, Adafactor, Lion",
+      "slug": "optim-classical",
+      "module": "mytorch.optim.classical",
+      "title": "ASGD와 Rprop",
       "eyebrow": "Optimization",
-      "summary": "평균화 SGD, 부호 기반 resilient update, factorized second moment, sign momentum 방식의 optimizer를 설명합니다.",
+      "summary": "평균화 SGD와 부호 변화 기반 resilient update를 사용하는 고전 optimizer를 설명합니다.",
+      "concepts": [
+        "ASGD는 감쇠된 학습률로 갱신하면서 일정 시점 이후 파라미터 평균을 유지합니다.",
+        "Rprop은 gradient 크기 대신 연속 step의 부호 변화로 원소별 step size를 조절합니다."
+      ],
+      "example": "optimizer = mt.optim.Rprop(\n    model.parameters(), lr=1e-2, etas=(0.5, 1.2)\n)"
+    },
+    {
+      "slug": "optim-modern",
+      "module": "mytorch.optim.modern",
+      "title": "Adafactor와 Lion",
+      "eyebrow": "Optimization",
+      "summary": "메모리 효율적인 factorized second moment와 sign momentum 방식의 현대 optimizer를 설명합니다.",
       "concepts": [
         "Adafactor는 행렬 파라미터의 second moment를 행·열로 factorize해 state 메모리를 줄입니다.",
         "Lion은 하나의 momentum state와 sign update, decoupled weight decay를 사용합니다.",
-        "Rprop은 gradient 크기 대신 연속 step의 부호 변화로 원소별 step size를 조절합니다."
+        "두 optimizer의 모든 상태 배열은 해당 Parameter와 같은 CUDA 장치에 유지됩니다."
       ],
       "example": "optimizer = mt.optim.Lion(\n    model.parameters(), lr=1e-4, betas=(0.9, 0.99),\n    weight_decay=0.01,\n)"
     }

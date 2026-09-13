@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Scaled dot-product attention, multi-head projection, Transformer Encoder, rotary position embedding을 설명합니다.">
+  <meta name="generator" content="MyTorch docs builder">
+  <title>Attention, Transformer, RoPE · MyTorch 0.7.0</title>
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/docs.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">본문으로 건너뛰기</a>
+  <header class="topbar">
+    <button class="menu-button" type="button" aria-label="문서 메뉴 열기" aria-expanded="false">☰</button>
+    <a class="brand" href="../index.html"><span class="brand-mark">M</span><span>MyTorch</span><span class="version">v0.7.0</span></a>
+    <div class="search-box">
+      <label class="sr-only" for="site-search">API 검색</label>
+      <input id="site-search" type="search" placeholder="API 검색…  /" autocomplete="off">
+      <div id="search-results" class="search-results" hidden></div>
+    </div>
+    <button class="theme-button" type="button" aria-label="색상 테마 전환">◐</button>
+  </header>
+  <div class="site-layout">
+    <aside class="sidebar" aria-label="문서 모듈 탐색">
+      <a class="overview-link" href="../index.html">문서 홈</a>
+      <div class="nav-group"><span>Core</span><a href="tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="autograd.html">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Runtime</span><a href="cuda.html">CUDA 상태 확인</a></div><div class="nav-group"><span>Persistence</span><a href="serialization.html">모델 저장과 불러오기</a></div><div class="nav-group"><span>Neural network</span><a href="nn-core.html">Module과 기본 계층</a><a href="nn-activations.html">활성화 함수 Module</a><a href="nn-losses.html">손실 함수 Module</a><a href="nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="nn-conv.html">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="nn-attention.html" aria-current="page">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="nn-efficient.html">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="nn-functional-layers.html">함수형 계층 연산</a><a href="nn-functional-activations.html">함수형 활성화 연산</a><a href="nn-functional-losses.html">함수형 손실 연산</a></div><div class="nav-group"><span>Initialization</span><a href="nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="optim-optimizer.html">Optimizer 기반 클래스</a><a href="optim-sgd.html">SGD</a><a href="optim-adam.html">Adam 계열</a><a href="optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="optim-classical.html">ASGD와 Rprop</a><a href="optim-modern.html">Adafactor와 Lion</a></div>
+    </aside>
+    <main id="main" class="content">
+      <header class="page-header">
+        <div class="eyebrow">Transformer · mytorch.nn.modules</div>
+        <h1>Attention, Transformer, RoPE</h1>
+        <p>Scaled dot-product attention, multi-head projection, Transformer Encoder, rotary position embedding을 설명합니다.</p>
+        <div class="page-meta"><span>MyTorch 0.7.0</span><span>7개 API 항목</span><span>CUDA 전용</span></div>
+      </header>
+      <section class="concept-panel">
+        <div><h2>이 모듈을 사용할 때 알아둘 점</h2><ul><li>boolean mask의 True는 허용 위치, False는 차단 위치입니다. additive mask는 attention score에 직접 더합니다.</li><li>완전히 마스킹된 query 행은 NaN 대신 0 출력을 생성합니다.</li><li>TransformerEncoderLayer는 pre/post norm, ReLU/GELU, 일반 FFN 또는 SwiGLU FFN을 선택할 수 있습니다.</li></ul></div>
+        <div><h2>기본 예제</h2><pre><code>import mytorch as mt
+
+layer = mt.nn.TransformerEncoderLayer(
+    d_model=128, nhead=8, dim_feedforward=512,
+    batch_first=True, norm_first=True, activation=&quot;gelu&quot;,
+)
+encoder = mt.nn.TransformerEncoder(layer, num_layers=4)
+x = mt.randn(2, 32, 128)
+y = encoder(x)</code></pre></div>
+      </section>
+      <nav class="page-toc" aria-label="이 페이지의 API"><strong>페이지 목차</strong><div><a href="#api-mytorch-nn-multiheadattention"><code>MultiheadAttention</code></a><a href="#api-mytorch-nn-transformerencoderlayer"><code>TransformerEncoderLayer</code></a><a href="#api-mytorch-nn-transformerencoderlayer-clone"><code>TransformerEncoderLayer.clone</code></a><a href="#api-mytorch-nn-transformerencoder"><code>TransformerEncoder</code></a><a href="#api-mytorch-nn-rotaryembedding"><code>RotaryEmbedding</code></a><a href="#api-mytorch-nn-rotaryembedding-to"><code>RotaryEmbedding.to</code></a><a href="#api-mytorch-nn-apply-rotary-pos-emb"><code>apply_rotary_pos_emb</code></a></div></nav>
+      <div class="api-list">
+      <article class="api-card searchable" id="api-mytorch-nn-multiheadattention" data-search="mytorch.nn.MultiheadAttention query, key, value projection과 multi-head scaled dot-product attention을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.MultiheadAttention</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-multiheadattention" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">query, key, value projection과 multi-head scaled dot-product attention을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.MultiheadAttention(embed_dim: &#x27;int&#x27;, num_heads: &#x27;int&#x27;, dropout: &#x27;float&#x27; = 0.0, bias: &#x27;bool&#x27; = True, kdim: &#x27;int | None&#x27; = None, vdim: &#x27;int | None&#x27; = None, batch_first: &#x27;bool&#x27; = False, *, device: &#x27;str | int&#x27; = &#x27;cuda:0&#x27;, dtype: &#x27;Any&#x27; = &lt;class &#x27;numpy.float32&#x27;&gt;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>embed_dim</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>MultiheadAttention의 모델 feature 차원입니다.</td></tr><tr><td><code>num_heads</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>parallel attention head 수입니다.</td></tr><tr><td><code>dropout</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.0</code></td><td>0~1 사이 dropout 확률입니다.</td></tr><tr><td><code>bias</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr><tr><td><code>kdim</code></td><td><code>&#x27;int | None&#x27;</code></td><td><code>None</code></td><td>key 입력 feature 차원입니다. 생략하면 embed_dim과 같습니다.</td></tr><tr><td><code>vdim</code></td><td><code>&#x27;int | None&#x27;</code></td><td><code>None</code></td><td>value 입력 feature 차원입니다. 생략하면 embed_dim과 같습니다.</td></tr><tr><td><code>batch_first</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>False</code></td><td>True이면 sequence 입력·출력에서 batch 축을 첫 번째로 둡니다.</td></tr><tr><td><code>device</code></td><td><code>&#x27;str | int&#x27;</code></td><td><code>&#x27;cuda:0&#x27;</code></td><td>CUDA 장치입니다. &#x27;cuda:N&#x27; 문자열 또는 정수 N을 사용하며 기본값은 cuda:0입니다.</td></tr><tr><td><code>dtype</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>&lt;class &#x27;numpy.float32&#x27;&gt;</code></td><td>결과 또는 파라미터의 dtype입니다. 생략 시 생성 규칙 또는 입력 dtype을 따릅니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 MultiheadAttention 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-transformerencoderlayer" data-search="mytorch.nn.TransformerEncoderLayer self-attention, residual, normalization, feed-forward 블록으로 encoder 한 층을 구성합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.TransformerEncoderLayer</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-transformerencoderlayer" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">self-attention, residual, normalization, feed-forward 블록으로 encoder 한 층을 구성합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.TransformerEncoderLayer(d_model: &#x27;int&#x27;, nhead: &#x27;int&#x27;, dim_feedforward: &#x27;int&#x27; = 2048, dropout: &#x27;float&#x27; = 0.1, activation: &#x27;str&#x27; = &#x27;relu&#x27;, layer_norm_eps: &#x27;float&#x27; = 1e-05, batch_first: &#x27;bool&#x27; = False, norm_first: &#x27;bool&#x27; = False, bias: &#x27;bool&#x27; = True, ffn: &#x27;str&#x27; = &#x27;linear&#x27;, *, device: &#x27;str | int&#x27; = &#x27;cuda:0&#x27;, dtype: &#x27;Any&#x27; = &lt;class &#x27;numpy.float32&#x27;&gt;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>d_model</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>Transformer token embedding의 feature 차원입니다.</td></tr><tr><td><code>nhead</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>attention head 수입니다. d_model을 정확히 나누어야 합니다.</td></tr><tr><td><code>dim_feedforward</code></td><td><code>&#x27;int&#x27;</code></td><td><code>2048</code></td><td>Transformer feed-forward 내부 hidden 차원입니다.</td></tr><tr><td><code>dropout</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.1</code></td><td>0~1 사이 dropout 확률입니다.</td></tr><tr><td><code>activation</code></td><td><code>&#x27;str&#x27;</code></td><td><code>&#x27;relu&#x27;</code></td><td>사용할 활성화 함수 이름 또는 모드입니다.</td></tr><tr><td><code>layer_norm_eps</code></td><td><code>&#x27;float&#x27;</code></td><td><code>1e-05</code></td><td>LayerNorm 분모 안정화를 위한 epsilon입니다.</td></tr><tr><td><code>batch_first</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>False</code></td><td>True이면 sequence 입력·출력에서 batch 축을 첫 번째로 둡니다.</td></tr><tr><td><code>norm_first</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>False</code></td><td>True이면 attention과 FFN 앞에서 정규화하는 pre-norm 구조를 사용합니다.</td></tr><tr><td><code>bias</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr><tr><td><code>ffn</code></td><td><code>&#x27;str&#x27;</code></td><td><code>&#x27;linear&#x27;</code></td><td>복제할 feed-forward Module 또는 FFN 구성입니다.</td></tr><tr><td><code>device</code></td><td><code>&#x27;str | int&#x27;</code></td><td><code>&#x27;cuda:0&#x27;</code></td><td>CUDA 장치입니다. &#x27;cuda:N&#x27; 문자열 또는 정수 N을 사용하며 기본값은 cuda:0입니다.</td></tr><tr><td><code>dtype</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>&lt;class &#x27;numpy.float32&#x27;&gt;</code></td><td>결과 또는 파라미터의 dtype입니다. 생략 시 생성 규칙 또는 입력 dtype을 따릅니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 TransformerEncoderLayer 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-transformerencoderlayer-clone" data-search="mytorch.nn.TransformerEncoderLayer.clone TransformerEncoderLayer 객체의 clone 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.TransformerEncoderLayer.clone</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-transformerencoderlayer-clone" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">TransformerEncoderLayer 객체의 clone 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.TransformerEncoderLayer.clone(self) -&gt; &#x27;TransformerEncoderLayer&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-transformerencoder" data-search="mytorch.nn.TransformerEncoder 동일 구조의 TransformerEncoderLayer를 여러 층 순차 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.TransformerEncoder</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-transformerencoder" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">동일 구조의 TransformerEncoderLayer를 여러 층 순차 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.TransformerEncoder(encoder_layer: &#x27;TransformerEncoderLayer&#x27;, num_layers: &#x27;int&#x27;, norm: &#x27;Module | None&#x27; = None) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>encoder_layer</code></td><td><code>&#x27;TransformerEncoderLayer&#x27;</code></td><td><code>필수</code></td><td>복제해 쌓을 TransformerEncoderLayer 원형입니다.</td></tr><tr><td><code>num_layers</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>쌓을 recurrent 또는 Transformer layer 수입니다.</td></tr><tr><td><code>norm</code></td><td><code>&#x27;Module | None&#x27;</code></td><td><code>None</code></td><td>마지막 encoder 출력에 적용할 선택적 정규화 Module입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 TransformerEncoder 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-rotaryembedding" data-search="mytorch.nn.RotaryEmbedding 위치별 sin·cos 회전값을 GPU cache로 만들어 rotary position embedding에 사용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.RotaryEmbedding</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-rotaryembedding" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">위치별 sin·cos 회전값을 GPU cache로 만들어 rotary position embedding에 사용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.RotaryEmbedding(dim: &#x27;int&#x27;, max_seq_len: &#x27;int&#x27; = 2048, base: &#x27;float&#x27; = 10000.0, *, device: &#x27;str | int&#x27; = &#x27;cuda:0&#x27;, dtype: &#x27;Any&#x27; = &lt;class &#x27;numpy.float32&#x27;&gt;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>dim</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>연산을 적용할 축입니다. 음수 값은 마지막 축부터 셉니다.</td></tr><tr><td><code>max_seq_len</code></td><td><code>&#x27;int&#x27;</code></td><td><code>2048</code></td><td>처음 준비할 rotary sin/cos cache의 최대 sequence 길이입니다.</td></tr><tr><td><code>base</code></td><td><code>&#x27;float&#x27;</code></td><td><code>10000.0</code></td><td>RoPE의 회전 주파수 간격을 결정하는 양의 밑입니다.</td></tr><tr><td><code>device</code></td><td><code>&#x27;str | int&#x27;</code></td><td><code>&#x27;cuda:0&#x27;</code></td><td>CUDA 장치입니다. &#x27;cuda:N&#x27; 문자열 또는 정수 N을 사용하며 기본값은 cuda:0입니다.</td></tr><tr><td><code>dtype</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>&lt;class &#x27;numpy.float32&#x27;&gt;</code></td><td>결과 또는 파라미터의 dtype입니다. 생략 시 생성 규칙 또는 입력 dtype을 따릅니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 RotaryEmbedding 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-rotaryembedding-to" data-search="mytorch.nn.RotaryEmbedding.to RotaryEmbedding 객체의 to 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.RotaryEmbedding.to</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-rotaryembedding-to" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">RotaryEmbedding 객체의 to 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.RotaryEmbedding.to(self, device: &#x27;str | int | None&#x27; = None, dtype: &#x27;Any&#x27; = None) -&gt; &#x27;RotaryEmbedding&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>device</code></td><td><code>&#x27;str | int | None&#x27;</code></td><td><code>None</code></td><td>CUDA 장치입니다. &#x27;cuda:N&#x27; 문자열 또는 정수 N을 사용하며 기본값은 cuda:0입니다.</td></tr><tr><td><code>dtype</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>None</code></td><td>결과 또는 파라미터의 dtype입니다. 생략 시 생성 규칙 또는 입력 dtype을 따릅니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>호출 대상 객체 자신을 반환해 method chaining을 지원합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-apply-rotary-pos-emb" data-search="mytorch.nn.apply_rotary_pos_emb query와 key의 짝수·홀수 feature 쌍을 sin·cos로 회전합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.nn.apply_rotary_pos_emb</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-apply-rotary-pos-emb" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">query와 key의 짝수·홀수 feature 쌍을 sin·cos로 회전합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.apply_rotary_pos_emb(query: &#x27;Tensor&#x27;, key: &#x27;Tensor&#x27;, cosine: &#x27;Tensor&#x27;, sine: &#x27;Tensor&#x27;) -&gt; &#x27;tuple[Tensor, Tensor]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>query</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>attention의 query Tensor입니다.</td></tr><tr><td><code>key</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>attention의 key Tensor입니다.</td></tr><tr><td><code>cosine</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>Rotary embedding에서 위치·차원별 cos 값을 담은 Tensor입니다.</td></tr><tr><td><code>sine</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>Rotary embedding에서 위치·차원별 sin 값을 담은 Tensor입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    </div>
+      <nav class="page-end"><a href="../index.html">← 전체 모듈 목록으로</a></nav>
+    </main>
+    <button class="back-to-top" type="button" aria-label="맨 위로">↑</button>
+  </div>
+  <footer>MyTorch 0.7.0 · GPU-only educational framework · API는 현재 소스 시그니처에서 생성되었습니다.</footer>
+  <script src="../assets/js/search-index.js"></script>
+  <script src="../assets/js/docs.js"></script>
+</body>
+</html>

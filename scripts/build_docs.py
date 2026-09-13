@@ -8,7 +8,6 @@ import importlib
 import inspect
 import json
 import re
-import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -16,10 +15,9 @@ from typing import Any
 import mytorch as mt
 
 ROOT = Path(__file__).resolve().parents[1]
-DOCS_SOURCE = ROOT / "docs"
-DOCS_OUTPUT = ROOT / "build" / "docs"
-CONTENT = DOCS_SOURCE / "content"
-API_DIR = DOCS_OUTPUT / "api"
+DOCS_ROOT = ROOT / "docs"
+CONTENT = DOCS_ROOT / "content"
+API_DIR = DOCS_ROOT / "api"
 
 
 @dataclass(frozen=True)
@@ -754,7 +752,6 @@ def main() -> None:
             f"docs version {version} does not match package version {mt.__version__}"
         )
     pages = catalog["pages"]
-    shutil.copytree(DOCS_SOURCE / "assets", DOCS_OUTPUT / "assets", dirs_exist_ok=True)
     API_DIR.mkdir(parents=True, exist_ok=True)
     expected_api_pages = {f"{page['slug']}.html" for page in pages}
     for stale_page in API_DIR.glob("*.html"):
@@ -784,9 +781,9 @@ def main() -> None:
         home_href="index.html",
         version=version,
     )
-    (DOCS_OUTPUT / "index.html").write_text(home, encoding="utf-8")
+    (DOCS_ROOT / "index.html").write_text(home, encoding="utf-8")
     search_json = json.dumps(search_index, ensure_ascii=False, separators=(",", ":"))
-    (DOCS_OUTPUT / "assets" / "js" / "search-index.js").write_text(
+    (DOCS_ROOT / "assets" / "js" / "search-index.js").write_text(
         f"window.MYTORCH_SEARCH_INDEX={search_json};\n", encoding="utf-8"
     )
     print(f"Built {len(pages) + 1} pages with {len(search_index)} API entries")

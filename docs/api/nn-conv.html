@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="1D·2D·3D 합성곱, 전치 합성곱, 고정·적응형 pooling 계층의 입력 shape와 공간 크기 계산을 설명합니다.">
+  <meta name="generator" content="MyTorch docs builder">
+  <title>Convolution과 Pooling · MyTorch 0.7.0</title>
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/docs.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">본문으로 건너뛰기</a>
+  <header class="topbar">
+    <button class="menu-button" type="button" aria-label="문서 메뉴 열기" aria-expanded="false">☰</button>
+    <a class="brand" href="../index.html"><span class="brand-mark">M</span><span>MyTorch</span><span class="version">v0.7.0</span></a>
+    <div class="search-box">
+      <label class="sr-only" for="site-search">API 검색</label>
+      <input id="site-search" type="search" placeholder="API 검색…  /" autocomplete="off">
+      <div id="search-results" class="search-results" hidden></div>
+    </div>
+    <button class="theme-button" type="button" aria-label="색상 테마 전환">◐</button>
+  </header>
+  <div class="site-layout">
+    <aside class="sidebar" aria-label="문서 모듈 탐색">
+      <a class="overview-link" href="../index.html">문서 홈</a>
+      <div class="nav-group"><span>Core</span><a href="tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="autograd.html">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Runtime</span><a href="cuda.html">CUDA 상태 확인</a></div><div class="nav-group"><span>Persistence</span><a href="serialization.html">모델 저장과 불러오기</a></div><div class="nav-group"><span>Neural network</span><a href="nn-core.html">Module과 기본 계층</a><a href="nn-activations.html">활성화 함수 Module</a><a href="nn-losses.html">손실 함수 Module</a><a href="nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="nn-conv.html" aria-current="page">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="nn-attention.html">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="nn-efficient.html">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="nn-functional-layers.html">함수형 계층 연산</a><a href="nn-functional-activations.html">함수형 활성화 연산</a><a href="nn-functional-losses.html">함수형 손실 연산</a></div><div class="nav-group"><span>Initialization</span><a href="nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="optim-optimizer.html">Optimizer 기반 클래스</a><a href="optim-sgd.html">SGD</a><a href="optim-adam.html">Adam 계열</a><a href="optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="optim-classical.html">ASGD와 Rprop</a><a href="optim-modern.html">Adafactor와 Lion</a></div>
+    </aside>
+    <main id="main" class="content">
+      <header class="page-header">
+        <div class="eyebrow">Vision · mytorch.nn.modules</div>
+        <h1>Convolution과 Pooling</h1>
+        <p>1D·2D·3D 합성곱, 전치 합성곱, 고정·적응형 pooling 계층의 입력 shape와 공간 크기 계산을 설명합니다.</p>
+        <div class="page-meta"><span>MyTorch 0.7.0</span><span>18개 API 항목</span><span>CUDA 전용</span></div>
+      </header>
+      <section class="concept-panel">
+        <div><h2>이 모듈을 사용할 때 알아둘 점</h2><ul><li>ConvNd 입력은 (N, C, 공간축...) 형식이며 groups는 in_channels와 out_channels를 모두 나누어야 합니다.</li><li>padding, stride, dilation은 정수 또는 공간 차원 수와 같은 길이의 tuple을 허용합니다.</li><li>MaxPool은 argmax 위치로 gradient를 되돌리고 AvgPool은 padding을 분모에 포함합니다.</li></ul></div>
+        <div><h2>기본 예제</h2><pre><code>import mytorch as mt
+
+net = mt.nn.Sequential(
+    mt.nn.Conv2d(3, 16, 3, padding=1),
+    mt.nn.ReLU(),
+    mt.nn.MaxPool2d(2),
+    mt.nn.Conv2d(16, 32, 3, padding=1),
+    mt.nn.AdaptiveAvgPool2d((1, 1)),
+    mt.nn.Flatten(),
+    mt.nn.Linear(32, 10),
+)
+y = net(mt.randn(8, 3, 32, 32))</code></pre></div>
+      </section>
+      <nav class="page-toc" aria-label="이 페이지의 API"><strong>페이지 목차</strong><div><a href="#api-mytorch-nn-conv1d"><code>Conv1d</code></a><a href="#api-mytorch-nn-conv2d"><code>Conv2d</code></a><a href="#api-mytorch-nn-conv3d"><code>Conv3d</code></a><a href="#api-mytorch-nn-convtranspose1d"><code>ConvTranspose1d</code></a><a href="#api-mytorch-nn-convtranspose2d"><code>ConvTranspose2d</code></a><a href="#api-mytorch-nn-convtranspose3d"><code>ConvTranspose3d</code></a><a href="#api-mytorch-nn-maxpool1d"><code>MaxPool1d</code></a><a href="#api-mytorch-nn-maxpool2d"><code>MaxPool2d</code></a><a href="#api-mytorch-nn-maxpool3d"><code>MaxPool3d</code></a><a href="#api-mytorch-nn-avgpool1d"><code>AvgPool1d</code></a><a href="#api-mytorch-nn-avgpool2d"><code>AvgPool2d</code></a><a href="#api-mytorch-nn-avgpool3d"><code>AvgPool3d</code></a><a href="#api-mytorch-nn-adaptivemaxpool1d"><code>AdaptiveMaxPool1d</code></a><a href="#api-mytorch-nn-adaptivemaxpool2d"><code>AdaptiveMaxPool2d</code></a><a href="#api-mytorch-nn-adaptivemaxpool3d"><code>AdaptiveMaxPool3d</code></a><a href="#api-mytorch-nn-adaptiveavgpool1d"><code>AdaptiveAvgPool1d</code></a><a href="#api-mytorch-nn-adaptiveavgpool2d"><code>AdaptiveAvgPool2d</code></a><a href="#api-mytorch-nn-adaptiveavgpool3d"><code>AdaptiveAvgPool3d</code></a></div></nav>
+      <div class="api-list">
+      <article class="api-card searchable" id="api-mytorch-nn-conv1d" data-search="mytorch.nn.Conv1d GPU im2col과 matrix multiplication으로 N차원 합성곱을 수행하는 계층입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.Conv1d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-conv1d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU im2col과 matrix multiplication으로 N차원 합성곱을 수행하는 계층입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Conv1d(in_channels: &#x27;int&#x27;, out_channels: &#x27;int&#x27;, kernel_size: &#x27;int | Sequence[int]&#x27;, stride: &#x27;int | Sequence[int]&#x27; = 1, padding: &#x27;int | Sequence[int]&#x27; = 0, output_padding: &#x27;int | Sequence[int]&#x27; = 0, groups: &#x27;int&#x27; = 1, bias: &#x27;bool&#x27; = True, dilation: &#x27;int | Sequence[int]&#x27; = 1, *, device: &#x27;str | int&#x27; = &#x27;cuda:0&#x27;, dtype: &#x27;Any&#x27; = &lt;class &#x27;numpy.float32&#x27;&gt;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>in_channels</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>입력 Tensor의 channel 수입니다.</td></tr><tr><td><code>out_channels</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>합성곱이 생성할 출력 channel 수입니다.</td></tr><tr><td><code>kernel_size</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>필수</code></td><td>공간 kernel 크기입니다. 정수 또는 차원별 tuple을 허용합니다.</td></tr><tr><td><code>stride</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>1</code></td><td>kernel이 이동하는 간격입니다. 생략 가능한 pooling에서는 kernel_size를 사용합니다.</td></tr><tr><td><code>padding</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>0</code></td><td>입력 양쪽에 추가할 0 padding 크기입니다.</td></tr><tr><td><code>output_padding</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>0</code></td><td>전치 합성곱의 모호한 출력 공간 크기를 조정하는 추가 크기입니다.</td></tr><tr><td><code>groups</code></td><td><code>&#x27;int&#x27;</code></td><td><code>1</code></td><td>channel 연결 그룹 수입니다. depthwise/grouped convolution을 제어합니다.</td></tr><tr><td><code>bias</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr><tr><td><code>dilation</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>1</code></td><td>kernel 원소 사이 간격입니다.</td></tr><tr><td><code>device</code></td><td><code>&#x27;str | int&#x27;</code></td><td><code>&#x27;cuda:0&#x27;</code></td><td>CUDA 장치입니다. &#x27;cuda:N&#x27; 문자열 또는 정수 N을 사용하며 기본값은 cuda:0입니다.</td></tr><tr><td><code>dtype</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>&lt;class &#x27;numpy.float32&#x27;&gt;</code></td><td>결과 또는 파라미터의 dtype입니다. 생략 시 생성 규칙 또는 입력 dtype을 따릅니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 Conv1d 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>입력은 batch와 channel 축 뒤에 1~3개의 공간축을 갖습니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-conv2d" data-search="mytorch.nn.Conv2d GPU im2col과 matrix multiplication으로 N차원 합성곱을 수행하는 계층입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.Conv2d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-conv2d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU im2col과 matrix multiplication으로 N차원 합성곱을 수행하는 계층입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Conv2d(in_channels: &#x27;int&#x27;, out_channels: &#x27;int&#x27;, kernel_size: &#x27;int | Sequence[int]&#x27;, stride: &#x27;int | Sequence[int]&#x27; = 1, padding: &#x27;int | Sequence[int]&#x27; = 0, output_padding: &#x27;int | Sequence[int]&#x27; = 0, groups: &#x27;int&#x27; = 1, bias: &#x27;bool&#x27; = True, dilation: &#x27;int | Sequence[int]&#x27; = 1, *, device: &#x27;str | int&#x27; = &#x27;cuda:0&#x27;, dtype: &#x27;Any&#x27; = &lt;class &#x27;numpy.float32&#x27;&gt;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>in_channels</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>입력 Tensor의 channel 수입니다.</td></tr><tr><td><code>out_channels</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>합성곱이 생성할 출력 channel 수입니다.</td></tr><tr><td><code>kernel_size</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>필수</code></td><td>공간 kernel 크기입니다. 정수 또는 차원별 tuple을 허용합니다.</td></tr><tr><td><code>stride</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>1</code></td><td>kernel이 이동하는 간격입니다. 생략 가능한 pooling에서는 kernel_size를 사용합니다.</td></tr><tr><td><code>padding</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>0</code></td><td>입력 양쪽에 추가할 0 padding 크기입니다.</td></tr><tr><td><code>output_padding</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>0</code></td><td>전치 합성곱의 모호한 출력 공간 크기를 조정하는 추가 크기입니다.</td></tr><tr><td><code>groups</code></td><td><code>&#x27;int&#x27;</code></td><td><code>1</code></td><td>channel 연결 그룹 수입니다. depthwise/grouped convolution을 제어합니다.</td></tr><tr><td><code>bias</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr><tr><td><code>dilation</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>1</code></td><td>kernel 원소 사이 간격입니다.</td></tr><tr><td><code>device</code></td><td><code>&#x27;str | int&#x27;</code></td><td><code>&#x27;cuda:0&#x27;</code></td><td>CUDA 장치입니다. &#x27;cuda:N&#x27; 문자열 또는 정수 N을 사용하며 기본값은 cuda:0입니다.</td></tr><tr><td><code>dtype</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>&lt;class &#x27;numpy.float32&#x27;&gt;</code></td><td>결과 또는 파라미터의 dtype입니다. 생략 시 생성 규칙 또는 입력 dtype을 따릅니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 Conv2d 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>입력은 batch와 channel 축 뒤에 1~3개의 공간축을 갖습니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-conv3d" data-search="mytorch.nn.Conv3d GPU im2col과 matrix multiplication으로 N차원 합성곱을 수행하는 계층입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.Conv3d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-conv3d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU im2col과 matrix multiplication으로 N차원 합성곱을 수행하는 계층입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Conv3d(in_channels: &#x27;int&#x27;, out_channels: &#x27;int&#x27;, kernel_size: &#x27;int | Sequence[int]&#x27;, stride: &#x27;int | Sequence[int]&#x27; = 1, padding: &#x27;int | Sequence[int]&#x27; = 0, output_padding: &#x27;int | Sequence[int]&#x27; = 0, groups: &#x27;int&#x27; = 1, bias: &#x27;bool&#x27; = True, dilation: &#x27;int | Sequence[int]&#x27; = 1, *, device: &#x27;str | int&#x27; = &#x27;cuda:0&#x27;, dtype: &#x27;Any&#x27; = &lt;class &#x27;numpy.float32&#x27;&gt;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>in_channels</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>입력 Tensor의 channel 수입니다.</td></tr><tr><td><code>out_channels</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>합성곱이 생성할 출력 channel 수입니다.</td></tr><tr><td><code>kernel_size</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>필수</code></td><td>공간 kernel 크기입니다. 정수 또는 차원별 tuple을 허용합니다.</td></tr><tr><td><code>stride</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>1</code></td><td>kernel이 이동하는 간격입니다. 생략 가능한 pooling에서는 kernel_size를 사용합니다.</td></tr><tr><td><code>padding</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>0</code></td><td>입력 양쪽에 추가할 0 padding 크기입니다.</td></tr><tr><td><code>output_padding</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>0</code></td><td>전치 합성곱의 모호한 출력 공간 크기를 조정하는 추가 크기입니다.</td></tr><tr><td><code>groups</code></td><td><code>&#x27;int&#x27;</code></td><td><code>1</code></td><td>channel 연결 그룹 수입니다. depthwise/grouped convolution을 제어합니다.</td></tr><tr><td><code>bias</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr><tr><td><code>dilation</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>1</code></td><td>kernel 원소 사이 간격입니다.</td></tr><tr><td><code>device</code></td><td><code>&#x27;str | int&#x27;</code></td><td><code>&#x27;cuda:0&#x27;</code></td><td>CUDA 장치입니다. &#x27;cuda:N&#x27; 문자열 또는 정수 N을 사용하며 기본값은 cuda:0입니다.</td></tr><tr><td><code>dtype</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>&lt;class &#x27;numpy.float32&#x27;&gt;</code></td><td>결과 또는 파라미터의 dtype입니다. 생략 시 생성 규칙 또는 입력 dtype을 따릅니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 Conv3d 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>입력은 batch와 channel 축 뒤에 1~3개의 공간축을 갖습니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-convtranspose1d" data-search="mytorch.nn.ConvTranspose1d 학습 가능한 kernel로 입력의 공간 크기를 확장하는 전치 합성곱 계층입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.ConvTranspose1d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-convtranspose1d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">학습 가능한 kernel로 입력의 공간 크기를 확장하는 전치 합성곱 계층입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.ConvTranspose1d(in_channels: &#x27;int&#x27;, out_channels: &#x27;int&#x27;, kernel_size: &#x27;int | Sequence[int]&#x27;, stride: &#x27;int | Sequence[int]&#x27; = 1, padding: &#x27;int | Sequence[int]&#x27; = 0, output_padding: &#x27;int | Sequence[int]&#x27; = 0, groups: &#x27;int&#x27; = 1, bias: &#x27;bool&#x27; = True, dilation: &#x27;int | Sequence[int]&#x27; = 1, *, device: &#x27;str | int&#x27; = &#x27;cuda:0&#x27;, dtype: &#x27;Any&#x27; = &lt;class &#x27;numpy.float32&#x27;&gt;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>in_channels</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>입력 Tensor의 channel 수입니다.</td></tr><tr><td><code>out_channels</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>합성곱이 생성할 출력 channel 수입니다.</td></tr><tr><td><code>kernel_size</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>필수</code></td><td>공간 kernel 크기입니다. 정수 또는 차원별 tuple을 허용합니다.</td></tr><tr><td><code>stride</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>1</code></td><td>kernel이 이동하는 간격입니다. 생략 가능한 pooling에서는 kernel_size를 사용합니다.</td></tr><tr><td><code>padding</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>0</code></td><td>입력 양쪽에 추가할 0 padding 크기입니다.</td></tr><tr><td><code>output_padding</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>0</code></td><td>전치 합성곱의 모호한 출력 공간 크기를 조정하는 추가 크기입니다.</td></tr><tr><td><code>groups</code></td><td><code>&#x27;int&#x27;</code></td><td><code>1</code></td><td>channel 연결 그룹 수입니다. depthwise/grouped convolution을 제어합니다.</td></tr><tr><td><code>bias</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr><tr><td><code>dilation</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>1</code></td><td>kernel 원소 사이 간격입니다.</td></tr><tr><td><code>device</code></td><td><code>&#x27;str | int&#x27;</code></td><td><code>&#x27;cuda:0&#x27;</code></td><td>CUDA 장치입니다. &#x27;cuda:N&#x27; 문자열 또는 정수 N을 사용하며 기본값은 cuda:0입니다.</td></tr><tr><td><code>dtype</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>&lt;class &#x27;numpy.float32&#x27;&gt;</code></td><td>결과 또는 파라미터의 dtype입니다. 생략 시 생성 규칙 또는 입력 dtype을 따릅니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 ConvTranspose1d 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>입력은 batch와 channel 축 뒤에 1~3개의 공간축을 갖습니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-convtranspose2d" data-search="mytorch.nn.ConvTranspose2d 학습 가능한 kernel로 입력의 공간 크기를 확장하는 전치 합성곱 계층입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.ConvTranspose2d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-convtranspose2d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">학습 가능한 kernel로 입력의 공간 크기를 확장하는 전치 합성곱 계층입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.ConvTranspose2d(in_channels: &#x27;int&#x27;, out_channels: &#x27;int&#x27;, kernel_size: &#x27;int | Sequence[int]&#x27;, stride: &#x27;int | Sequence[int]&#x27; = 1, padding: &#x27;int | Sequence[int]&#x27; = 0, output_padding: &#x27;int | Sequence[int]&#x27; = 0, groups: &#x27;int&#x27; = 1, bias: &#x27;bool&#x27; = True, dilation: &#x27;int | Sequence[int]&#x27; = 1, *, device: &#x27;str | int&#x27; = &#x27;cuda:0&#x27;, dtype: &#x27;Any&#x27; = &lt;class &#x27;numpy.float32&#x27;&gt;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>in_channels</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>입력 Tensor의 channel 수입니다.</td></tr><tr><td><code>out_channels</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>합성곱이 생성할 출력 channel 수입니다.</td></tr><tr><td><code>kernel_size</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>필수</code></td><td>공간 kernel 크기입니다. 정수 또는 차원별 tuple을 허용합니다.</td></tr><tr><td><code>stride</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>1</code></td><td>kernel이 이동하는 간격입니다. 생략 가능한 pooling에서는 kernel_size를 사용합니다.</td></tr><tr><td><code>padding</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>0</code></td><td>입력 양쪽에 추가할 0 padding 크기입니다.</td></tr><tr><td><code>output_padding</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>0</code></td><td>전치 합성곱의 모호한 출력 공간 크기를 조정하는 추가 크기입니다.</td></tr><tr><td><code>groups</code></td><td><code>&#x27;int&#x27;</code></td><td><code>1</code></td><td>channel 연결 그룹 수입니다. depthwise/grouped convolution을 제어합니다.</td></tr><tr><td><code>bias</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr><tr><td><code>dilation</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>1</code></td><td>kernel 원소 사이 간격입니다.</td></tr><tr><td><code>device</code></td><td><code>&#x27;str | int&#x27;</code></td><td><code>&#x27;cuda:0&#x27;</code></td><td>CUDA 장치입니다. &#x27;cuda:N&#x27; 문자열 또는 정수 N을 사용하며 기본값은 cuda:0입니다.</td></tr><tr><td><code>dtype</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>&lt;class &#x27;numpy.float32&#x27;&gt;</code></td><td>결과 또는 파라미터의 dtype입니다. 생략 시 생성 규칙 또는 입력 dtype을 따릅니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 ConvTranspose2d 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>입력은 batch와 channel 축 뒤에 1~3개의 공간축을 갖습니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-convtranspose3d" data-search="mytorch.nn.ConvTranspose3d 학습 가능한 kernel로 입력의 공간 크기를 확장하는 전치 합성곱 계층입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.ConvTranspose3d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-convtranspose3d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">학습 가능한 kernel로 입력의 공간 크기를 확장하는 전치 합성곱 계층입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.ConvTranspose3d(in_channels: &#x27;int&#x27;, out_channels: &#x27;int&#x27;, kernel_size: &#x27;int | Sequence[int]&#x27;, stride: &#x27;int | Sequence[int]&#x27; = 1, padding: &#x27;int | Sequence[int]&#x27; = 0, output_padding: &#x27;int | Sequence[int]&#x27; = 0, groups: &#x27;int&#x27; = 1, bias: &#x27;bool&#x27; = True, dilation: &#x27;int | Sequence[int]&#x27; = 1, *, device: &#x27;str | int&#x27; = &#x27;cuda:0&#x27;, dtype: &#x27;Any&#x27; = &lt;class &#x27;numpy.float32&#x27;&gt;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>in_channels</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>입력 Tensor의 channel 수입니다.</td></tr><tr><td><code>out_channels</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>합성곱이 생성할 출력 channel 수입니다.</td></tr><tr><td><code>kernel_size</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>필수</code></td><td>공간 kernel 크기입니다. 정수 또는 차원별 tuple을 허용합니다.</td></tr><tr><td><code>stride</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>1</code></td><td>kernel이 이동하는 간격입니다. 생략 가능한 pooling에서는 kernel_size를 사용합니다.</td></tr><tr><td><code>padding</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>0</code></td><td>입력 양쪽에 추가할 0 padding 크기입니다.</td></tr><tr><td><code>output_padding</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>0</code></td><td>전치 합성곱의 모호한 출력 공간 크기를 조정하는 추가 크기입니다.</td></tr><tr><td><code>groups</code></td><td><code>&#x27;int&#x27;</code></td><td><code>1</code></td><td>channel 연결 그룹 수입니다. depthwise/grouped convolution을 제어합니다.</td></tr><tr><td><code>bias</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr><tr><td><code>dilation</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>1</code></td><td>kernel 원소 사이 간격입니다.</td></tr><tr><td><code>device</code></td><td><code>&#x27;str | int&#x27;</code></td><td><code>&#x27;cuda:0&#x27;</code></td><td>CUDA 장치입니다. &#x27;cuda:N&#x27; 문자열 또는 정수 N을 사용하며 기본값은 cuda:0입니다.</td></tr><tr><td><code>dtype</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>&lt;class &#x27;numpy.float32&#x27;&gt;</code></td><td>결과 또는 파라미터의 dtype입니다. 생략 시 생성 규칙 또는 입력 dtype을 따릅니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 ConvTranspose3d 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>입력은 batch와 channel 축 뒤에 1~3개의 공간축을 갖습니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-maxpool1d" data-search="mytorch.nn.MaxPool1d 공간 window 또는 목표 출력 구간에서 최댓값을 집계하는 pooling 계층입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.MaxPool1d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-maxpool1d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">공간 window 또는 목표 출력 구간에서 최댓값을 집계하는 pooling 계층입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.MaxPool1d(kernel_size: &#x27;int | Sequence[int]&#x27;, stride: &#x27;int | Sequence[int] | None&#x27; = None, padding: &#x27;int | Sequence[int]&#x27; = 0) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>kernel_size</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>필수</code></td><td>공간 kernel 크기입니다. 정수 또는 차원별 tuple을 허용합니다.</td></tr><tr><td><code>stride</code></td><td><code>&#x27;int | Sequence[int] | None&#x27;</code></td><td><code>None</code></td><td>kernel이 이동하는 간격입니다. 생략 가능한 pooling에서는 kernel_size를 사용합니다.</td></tr><tr><td><code>padding</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>0</code></td><td>입력 양쪽에 추가할 0 padding 크기입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 MaxPool1d 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>입력은 batch와 channel 축 뒤에 1~3개의 공간축을 갖습니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-maxpool2d" data-search="mytorch.nn.MaxPool2d 공간 window 또는 목표 출력 구간에서 최댓값을 집계하는 pooling 계층입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.MaxPool2d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-maxpool2d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">공간 window 또는 목표 출력 구간에서 최댓값을 집계하는 pooling 계층입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.MaxPool2d(kernel_size: &#x27;int | Sequence[int]&#x27;, stride: &#x27;int | Sequence[int] | None&#x27; = None, padding: &#x27;int | Sequence[int]&#x27; = 0) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>kernel_size</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>필수</code></td><td>공간 kernel 크기입니다. 정수 또는 차원별 tuple을 허용합니다.</td></tr><tr><td><code>stride</code></td><td><code>&#x27;int | Sequence[int] | None&#x27;</code></td><td><code>None</code></td><td>kernel이 이동하는 간격입니다. 생략 가능한 pooling에서는 kernel_size를 사용합니다.</td></tr><tr><td><code>padding</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>0</code></td><td>입력 양쪽에 추가할 0 padding 크기입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 MaxPool2d 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>입력은 batch와 channel 축 뒤에 1~3개의 공간축을 갖습니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-maxpool3d" data-search="mytorch.nn.MaxPool3d 공간 window 또는 목표 출력 구간에서 최댓값을 집계하는 pooling 계층입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.MaxPool3d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-maxpool3d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">공간 window 또는 목표 출력 구간에서 최댓값을 집계하는 pooling 계층입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.MaxPool3d(kernel_size: &#x27;int | Sequence[int]&#x27;, stride: &#x27;int | Sequence[int] | None&#x27; = None, padding: &#x27;int | Sequence[int]&#x27; = 0) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>kernel_size</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>필수</code></td><td>공간 kernel 크기입니다. 정수 또는 차원별 tuple을 허용합니다.</td></tr><tr><td><code>stride</code></td><td><code>&#x27;int | Sequence[int] | None&#x27;</code></td><td><code>None</code></td><td>kernel이 이동하는 간격입니다. 생략 가능한 pooling에서는 kernel_size를 사용합니다.</td></tr><tr><td><code>padding</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>0</code></td><td>입력 양쪽에 추가할 0 padding 크기입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 MaxPool3d 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>입력은 batch와 channel 축 뒤에 1~3개의 공간축을 갖습니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-avgpool1d" data-search="mytorch.nn.AvgPool1d 공간 window 또는 목표 출력 구간에서 평균값을 집계하는 pooling 계층입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.AvgPool1d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-avgpool1d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">공간 window 또는 목표 출력 구간에서 평균값을 집계하는 pooling 계층입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.AvgPool1d(kernel_size: &#x27;int | Sequence[int]&#x27;, stride: &#x27;int | Sequence[int] | None&#x27; = None, padding: &#x27;int | Sequence[int]&#x27; = 0) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>kernel_size</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>필수</code></td><td>공간 kernel 크기입니다. 정수 또는 차원별 tuple을 허용합니다.</td></tr><tr><td><code>stride</code></td><td><code>&#x27;int | Sequence[int] | None&#x27;</code></td><td><code>None</code></td><td>kernel이 이동하는 간격입니다. 생략 가능한 pooling에서는 kernel_size를 사용합니다.</td></tr><tr><td><code>padding</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>0</code></td><td>입력 양쪽에 추가할 0 padding 크기입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 AvgPool1d 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>입력은 batch와 channel 축 뒤에 1~3개의 공간축을 갖습니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-avgpool2d" data-search="mytorch.nn.AvgPool2d 공간 window 또는 목표 출력 구간에서 평균값을 집계하는 pooling 계층입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.AvgPool2d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-avgpool2d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">공간 window 또는 목표 출력 구간에서 평균값을 집계하는 pooling 계층입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.AvgPool2d(kernel_size: &#x27;int | Sequence[int]&#x27;, stride: &#x27;int | Sequence[int] | None&#x27; = None, padding: &#x27;int | Sequence[int]&#x27; = 0) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>kernel_size</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>필수</code></td><td>공간 kernel 크기입니다. 정수 또는 차원별 tuple을 허용합니다.</td></tr><tr><td><code>stride</code></td><td><code>&#x27;int | Sequence[int] | None&#x27;</code></td><td><code>None</code></td><td>kernel이 이동하는 간격입니다. 생략 가능한 pooling에서는 kernel_size를 사용합니다.</td></tr><tr><td><code>padding</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>0</code></td><td>입력 양쪽에 추가할 0 padding 크기입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 AvgPool2d 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>입력은 batch와 channel 축 뒤에 1~3개의 공간축을 갖습니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-avgpool3d" data-search="mytorch.nn.AvgPool3d 공간 window 또는 목표 출력 구간에서 평균값을 집계하는 pooling 계층입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.AvgPool3d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-avgpool3d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">공간 window 또는 목표 출력 구간에서 평균값을 집계하는 pooling 계층입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.AvgPool3d(kernel_size: &#x27;int | Sequence[int]&#x27;, stride: &#x27;int | Sequence[int] | None&#x27; = None, padding: &#x27;int | Sequence[int]&#x27; = 0) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>kernel_size</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>필수</code></td><td>공간 kernel 크기입니다. 정수 또는 차원별 tuple을 허용합니다.</td></tr><tr><td><code>stride</code></td><td><code>&#x27;int | Sequence[int] | None&#x27;</code></td><td><code>None</code></td><td>kernel이 이동하는 간격입니다. 생략 가능한 pooling에서는 kernel_size를 사용합니다.</td></tr><tr><td><code>padding</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>0</code></td><td>입력 양쪽에 추가할 0 padding 크기입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 AvgPool3d 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>입력은 batch와 channel 축 뒤에 1~3개의 공간축을 갖습니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-adaptivemaxpool1d" data-search="mytorch.nn.AdaptiveMaxPool1d 공간 window 또는 목표 출력 구간에서 최댓값을 집계하는 pooling 계층입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.AdaptiveMaxPool1d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-adaptivemaxpool1d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">공간 window 또는 목표 출력 구간에서 최댓값을 집계하는 pooling 계층입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.AdaptiveMaxPool1d(output_size: &#x27;int | Sequence[int]&#x27;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>output_size</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>필수</code></td><td>적응형 pooling이 만들 공간 출력 크기입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 AdaptiveMaxPool1d 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>입력은 batch와 channel 축 뒤에 1~3개의 공간축을 갖습니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-adaptivemaxpool2d" data-search="mytorch.nn.AdaptiveMaxPool2d 공간 window 또는 목표 출력 구간에서 최댓값을 집계하는 pooling 계층입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.AdaptiveMaxPool2d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-adaptivemaxpool2d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">공간 window 또는 목표 출력 구간에서 최댓값을 집계하는 pooling 계층입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.AdaptiveMaxPool2d(output_size: &#x27;int | Sequence[int]&#x27;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>output_size</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>필수</code></td><td>적응형 pooling이 만들 공간 출력 크기입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 AdaptiveMaxPool2d 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>입력은 batch와 channel 축 뒤에 1~3개의 공간축을 갖습니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-adaptivemaxpool3d" data-search="mytorch.nn.AdaptiveMaxPool3d 공간 window 또는 목표 출력 구간에서 최댓값을 집계하는 pooling 계층입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.AdaptiveMaxPool3d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-adaptivemaxpool3d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">공간 window 또는 목표 출력 구간에서 최댓값을 집계하는 pooling 계층입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.AdaptiveMaxPool3d(output_size: &#x27;int | Sequence[int]&#x27;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>output_size</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>필수</code></td><td>적응형 pooling이 만들 공간 출력 크기입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 AdaptiveMaxPool3d 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>입력은 batch와 channel 축 뒤에 1~3개의 공간축을 갖습니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-adaptiveavgpool1d" data-search="mytorch.nn.AdaptiveAvgPool1d 공간 window 또는 목표 출력 구간에서 평균값을 집계하는 pooling 계층입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.AdaptiveAvgPool1d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-adaptiveavgpool1d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">공간 window 또는 목표 출력 구간에서 평균값을 집계하는 pooling 계층입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.AdaptiveAvgPool1d(output_size: &#x27;int | Sequence[int]&#x27;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>output_size</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>필수</code></td><td>적응형 pooling이 만들 공간 출력 크기입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 AdaptiveAvgPool1d 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>입력은 batch와 channel 축 뒤에 1~3개의 공간축을 갖습니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-adaptiveavgpool2d" data-search="mytorch.nn.AdaptiveAvgPool2d 공간 window 또는 목표 출력 구간에서 평균값을 집계하는 pooling 계층입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.AdaptiveAvgPool2d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-adaptiveavgpool2d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">공간 window 또는 목표 출력 구간에서 평균값을 집계하는 pooling 계층입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.AdaptiveAvgPool2d(output_size: &#x27;int | Sequence[int]&#x27;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>output_size</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>필수</code></td><td>적응형 pooling이 만들 공간 출력 크기입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 AdaptiveAvgPool2d 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>입력은 batch와 channel 축 뒤에 1~3개의 공간축을 갖습니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-adaptiveavgpool3d" data-search="mytorch.nn.AdaptiveAvgPool3d 공간 window 또는 목표 출력 구간에서 평균값을 집계하는 pooling 계층입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.AdaptiveAvgPool3d</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-adaptiveavgpool3d" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">공간 window 또는 목표 출력 구간에서 평균값을 집계하는 pooling 계층입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.AdaptiveAvgPool3d(output_size: &#x27;int | Sequence[int]&#x27;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>output_size</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>필수</code></td><td>적응형 pooling이 만들 공간 출력 크기입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 AdaptiveAvgPool3d 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>입력은 batch와 channel 축 뒤에 1~3개의 공간축을 갖습니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    </div>
+      <nav class="page-end"><a href="../index.html">← 전체 모듈 목록으로</a></nav>
+    </main>
+    <button class="back-to-top" type="button" aria-label="맨 위로">↑</button>
+  </div>
+  <footer>MyTorch 0.7.0 · GPU-only educational framework · API는 현재 소스 시그니처에서 생성되었습니다.</footer>
+  <script src="../assets/js/search-index.js"></script>
+  <script src="../assets/js/docs.js"></script>
+</body>
+</html>

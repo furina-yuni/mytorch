@@ -63,13 +63,12 @@ def _resolve_local(source: Path, reference: str) -> tuple[Path, str]:
 
 def main() -> None:
     root = Path(__file__).resolve().parents[1]
-    source = root / "docs"
-    docs = root / "build" / "docs"
+    docs = root / "docs"
     catalog = json.loads(
-        (source / "content" / "modules.json").read_text(encoding="utf-8")
+        (docs / "content" / "modules.json").read_text(encoding="utf-8")
     )
     parameters = json.loads(
-        (source / "content" / "parameters.json").read_text(encoding="utf-8")
+        (docs / "content" / "parameters.json").read_text(encoding="utf-8")
     )
     expected_pages = {docs / "index.html"}
     expected_pages |= {

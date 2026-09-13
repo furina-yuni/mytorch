@@ -1,0 +1,840 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Parameter 등록, 모델 상태, Module 컨테이너와 Linear·Flatten 같은 기본 구성요소만 모아 설명합니다.">
+  <meta name="generator" content="MyTorch docs builder">
+  <title>Module과 기본 계층 · MyTorch 0.7.0</title>
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/docs.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">본문으로 건너뛰기</a>
+  <header class="topbar">
+    <button class="menu-button" type="button" aria-label="문서 메뉴 열기" aria-expanded="false">☰</button>
+    <a class="brand" href="../index.html"><span class="brand-mark">M</span><span>MyTorch</span><span class="version">v0.7.0</span></a>
+    <div class="search-box">
+      <label class="sr-only" for="site-search">API 검색</label>
+      <input id="site-search" type="search" placeholder="API 검색…  /" autocomplete="off">
+      <div id="search-results" class="search-results" hidden></div>
+    </div>
+    <button class="theme-button" type="button" aria-label="색상 테마 전환">◐</button>
+  </header>
+  <div class="site-layout">
+    <aside class="sidebar" aria-label="문서 모듈 탐색">
+      <a class="overview-link" href="../index.html">문서 홈</a>
+      <div class="nav-group"><span>Core</span><a href="tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="autograd.html">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Runtime</span><a href="cuda.html">CUDA 상태 확인</a></div><div class="nav-group"><span>Persistence</span><a href="serialization.html">모델 저장과 불러오기</a></div><div class="nav-group"><span>Neural network</span><a href="nn-core.html" aria-current="page">Module과 기본 계층</a><a href="nn-activations.html">활성화 함수 Module</a><a href="nn-losses.html">손실 함수 Module</a><a href="nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="nn-conv.html">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="nn-attention.html">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="nn-efficient.html">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="nn-functional-layers.html">함수형 계층 연산</a><a href="nn-functional-activations.html">함수형 활성화 연산</a><a href="nn-functional-losses.html">함수형 손실 연산</a></div><div class="nav-group"><span>Initialization</span><a href="nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="optim-optimizer.html">Optimizer 기반 클래스</a><a href="optim-sgd.html">SGD</a><a href="optim-adam.html">Adam 계열</a><a href="optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="optim-classical.html">ASGD와 Rprop</a><a href="optim-modern.html">Adafactor와 Lion</a></div>
+    </aside>
+    <main id="main" class="content">
+      <header class="page-header">
+        <div class="eyebrow">Neural network · mytorch.nn.modules</div>
+        <h1>Module과 기본 계층</h1>
+        <p>Parameter 등록, 모델 상태, Module 컨테이너와 Linear·Flatten 같은 기본 구성요소만 모아 설명합니다.</p>
+        <div class="page-meta"><span>MyTorch 0.7.0</span><span>27개 API 항목</span><span>CUDA 전용</span></div>
+      </header>
+      <section class="concept-panel">
+        <div><h2>이 모듈을 사용할 때 알아둘 점</h2><ul><li>Module 속성에 Parameter나 자식 Module을 대입하면 자동 등록되어 parameters()와 state_dict()에 포함됩니다.</li><li>train(), eval(), to(), zero_grad()는 등록된 자식과 Parameter를 재귀적으로 처리합니다.</li><li>Sequential, ModuleList, ParameterList는 Python container와 비슷하지만 내부 객체의 등록 상태를 유지합니다.</li></ul></div>
+        <div><h2>기본 예제</h2><pre><code>import mytorch as mt
+
+model = mt.nn.Sequential(
+    mt.nn.Linear(8, 32),
+    mt.nn.ReLU(),
+    mt.nn.Linear(32, 4),
+)
+print([name for name, _ in model.named_parameters()])</code></pre></div>
+      </section>
+      <nav class="page-toc" aria-label="이 페이지의 API"><strong>페이지 목차</strong><div><a href="#api-mytorch-nn-parameter"><code>Parameter</code></a><a href="#api-mytorch-nn-module"><code>Module</code></a><a href="#api-mytorch-nn-module-add-module"><code>Module.add_module</code></a><a href="#api-mytorch-nn-module-register-buffer"><code>Module.register_buffer</code></a><a href="#api-mytorch-nn-module-named-parameters"><code>Module.named_parameters</code></a><a href="#api-mytorch-nn-module-parameters"><code>Module.parameters</code></a><a href="#api-mytorch-nn-module-named-buffers"><code>Module.named_buffers</code></a><a href="#api-mytorch-nn-module-buffers"><code>Module.buffers</code></a><a href="#api-mytorch-nn-module-named-modules"><code>Module.named_modules</code></a><a href="#api-mytorch-nn-module-modules"><code>Module.modules</code></a><a href="#api-mytorch-nn-module-children"><code>Module.children</code></a><a href="#api-mytorch-nn-module-train"><code>Module.train</code></a><a href="#api-mytorch-nn-module-eval"><code>Module.eval</code></a><a href="#api-mytorch-nn-module-zero-grad"><code>Module.zero_grad</code></a><a href="#api-mytorch-nn-module-to"><code>Module.to</code></a><a href="#api-mytorch-nn-module-state-dict"><code>Module.state_dict</code></a><a href="#api-mytorch-nn-module-load-state-dict"><code>Module.load_state_dict</code></a><a href="#api-mytorch-nn-linear"><code>Linear</code></a><a href="#api-mytorch-nn-sequential"><code>Sequential</code></a><a href="#api-mytorch-nn-modulelist"><code>ModuleList</code></a><a href="#api-mytorch-nn-modulelist-append"><code>ModuleList.append</code></a><a href="#api-mytorch-nn-modulelist-extend"><code>ModuleList.extend</code></a><a href="#api-mytorch-nn-parameterlist"><code>ParameterList</code></a><a href="#api-mytorch-nn-parameterlist-append"><code>ParameterList.append</code></a><a href="#api-mytorch-nn-parameterlist-extend"><code>ParameterList.extend</code></a><a href="#api-mytorch-nn-identity"><code>Identity</code></a><a href="#api-mytorch-nn-flatten"><code>Flatten</code></a></div></nav>
+      <div class="api-list">
+      <article class="api-card searchable" id="api-mytorch-nn-parameter" data-search="mytorch.nn.Parameter Module이 학습 대상으로 자동 등록하는 requires_grad=True leaf Tensor입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.Parameter</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-parameter" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Module이 학습 대상으로 자동 등록하는 requires_grad=True leaf Tensor입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Parameter(data: &#x27;Any&#x27;, *, dtype: &#x27;Any&#x27; = None, device: &#x27;str | int | None&#x27; = None, requires_grad: &#x27;bool&#x27; = True) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>data</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>필수</code></td><td>Tensor로 변환할 Python 스칼라·sequence, NumPy 배열, CuPy 배열 또는 Tensor입니다.</td></tr><tr><td><code>dtype</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>None</code></td><td>결과 또는 파라미터의 dtype입니다. 생략 시 생성 규칙 또는 입력 dtype을 따릅니다.</td></tr><tr><td><code>device</code></td><td><code>&#x27;str | int | None&#x27;</code></td><td><code>None</code></td><td>CUDA 장치입니다. &#x27;cuda:N&#x27; 문자열 또는 정수 N을 사용하며 기본값은 cuda:0입니다.</td></tr><tr><td><code>requires_grad</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 실수 Tensor에 대해 자동미분 계산 그래프를 기록합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 Parameter 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-module" data-search="mytorch.nn.Module 신경망 계층, Parameter, buffer, 학습·평가 모드를 재귀적으로 관리하는 기반 클래스입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.Module</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-module" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">신경망 계층, Parameter, buffer, 학습·평가 모드를 재귀적으로 관리하는 기반 클래스입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Module() -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 Module 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-module-add-module" data-search="mytorch.nn.Module.add_module Module 객체의 add_module 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.Module.add_module</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-module-add-module" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Module 객체의 add_module 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Module.add_module(self, name: &#x27;str&#x27;, module: &#x27;Module&#x27;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>name</code></td><td><code>&#x27;str&#x27;</code></td><td><code>필수</code></td><td>등록하거나 조회할 이름입니다. 점(.)이 없는 비어 있지 않은 문자열이어야 합니다.</td></tr><tr><td><code>module</code></td><td><code>&#x27;Module&#x27;</code></td><td><code>필수</code></td><td>등록할 자식 Module입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-module-register-buffer" data-search="mytorch.nn.Module.register_buffer Module 객체의 register_buffer 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.Module.register_buffer</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-module-register-buffer" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Module 객체의 register_buffer 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Module.register_buffer(self, name: &#x27;str&#x27;, tensor: &#x27;Tensor | None&#x27;, persistent: &#x27;bool&#x27; = True) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>name</code></td><td><code>&#x27;str&#x27;</code></td><td><code>필수</code></td><td>등록하거나 조회할 이름입니다. 점(.)이 없는 비어 있지 않은 문자열이어야 합니다.</td></tr><tr><td><code>tensor</code></td><td><code>&#x27;Tensor | None&#x27;</code></td><td><code>필수</code></td><td>초기화하거나 buffer로 등록할 Tensor입니다.</td></tr><tr><td><code>persistent</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 buffer를 state_dict에 포함합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-module-named-parameters" data-search="mytorch.nn.Module.named_parameters Module 객체의 named_parameters 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.Module.named_parameters</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-module-named-parameters" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Module 객체의 named_parameters 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Module.named_parameters(self, prefix: &#x27;str&#x27; = &#x27;&#x27;) -&gt; &#x27;Iterator[tuple[str, Parameter]]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>prefix</code></td><td><code>&#x27;str&#x27;</code></td><td><code>&#x27;&#x27;</code></td><td>반환되는 재귀 이름 앞에 붙일 문자열입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>점으로 구분된 이름과 객체의 tuple을 순서대로 생성하는 iterator입니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-module-parameters" data-search="mytorch.nn.Module.parameters Module 객체의 parameters 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.Module.parameters</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-module-parameters" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Module 객체의 parameters 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Module.parameters(self) -&gt; &#x27;Iterator[Parameter]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>등록 순서를 보존하는 iterator입니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-module-named-buffers" data-search="mytorch.nn.Module.named_buffers Module 객체의 named_buffers 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.Module.named_buffers</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-module-named-buffers" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Module 객체의 named_buffers 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Module.named_buffers(self, prefix: &#x27;str&#x27; = &#x27;&#x27;) -&gt; &#x27;Iterator[tuple[str, Tensor]]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>prefix</code></td><td><code>&#x27;str&#x27;</code></td><td><code>&#x27;&#x27;</code></td><td>반환되는 재귀 이름 앞에 붙일 문자열입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>점으로 구분된 이름과 객체의 tuple을 순서대로 생성하는 iterator입니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-module-buffers" data-search="mytorch.nn.Module.buffers Module 객체의 buffers 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.Module.buffers</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-module-buffers" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Module 객체의 buffers 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Module.buffers(self) -&gt; &#x27;Iterator[Tensor]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>등록 순서를 보존하는 iterator입니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-module-named-modules" data-search="mytorch.nn.Module.named_modules Module 객체의 named_modules 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.Module.named_modules</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-module-named-modules" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Module 객체의 named_modules 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Module.named_modules(self, prefix: &#x27;str&#x27; = &#x27;&#x27;) -&gt; &#x27;Iterator[tuple[str, Module]]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>prefix</code></td><td><code>&#x27;str&#x27;</code></td><td><code>&#x27;&#x27;</code></td><td>반환되는 재귀 이름 앞에 붙일 문자열입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>점으로 구분된 이름과 객체의 tuple을 순서대로 생성하는 iterator입니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-module-modules" data-search="mytorch.nn.Module.modules Module 객체의 modules 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.Module.modules</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-module-modules" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Module 객체의 modules 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Module.modules(self) -&gt; &#x27;Iterator[Module]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>등록 순서를 보존하는 iterator입니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-module-children" data-search="mytorch.nn.Module.children Module 객체의 children 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.Module.children</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-module-children" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Module 객체의 children 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Module.children(self) -&gt; &#x27;Iterator[Module]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>등록 순서를 보존하는 iterator입니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-module-train" data-search="mytorch.nn.Module.train Module 객체의 train 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.Module.train</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-module-train" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Module 객체의 train 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Module.train(self, mode: &#x27;bool&#x27; = True) -&gt; &#x27;Module&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>mode</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>계층이 지원하는 계산 모드입니다. 허용 문자열은 해당 API 설명을 따릅니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>호출 대상 객체 자신을 반환해 method chaining을 지원합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-module-eval" data-search="mytorch.nn.Module.eval Module 객체의 eval 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.Module.eval</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-module-eval" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Module 객체의 eval 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Module.eval(self) -&gt; &#x27;Module&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>호출 대상 객체 자신을 반환해 method chaining을 지원합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-module-zero-grad" data-search="mytorch.nn.Module.zero_grad Module 객체의 zero_grad 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.Module.zero_grad</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-module-zero-grad" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Module 객체의 zero_grad 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Module.zero_grad(self, set_to_none: &#x27;bool&#x27; = True) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>set_to_none</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 grad를 None으로, False이면 0 Tensor로 초기화합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>None. 객체의 gradient, 난수 상태, 파일 또는 Parameter를 변경합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-module-to" data-search="mytorch.nn.Module.to Module 객체의 to 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.Module.to</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-module-to" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Module 객체의 to 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Module.to(self, device: &#x27;str | int | None&#x27; = None, dtype: &#x27;Any&#x27; = None) -&gt; &#x27;Module&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>device</code></td><td><code>&#x27;str | int | None&#x27;</code></td><td><code>None</code></td><td>CUDA 장치입니다. &#x27;cuda:N&#x27; 문자열 또는 정수 N을 사용하며 기본값은 cuda:0입니다.</td></tr><tr><td><code>dtype</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>None</code></td><td>결과 또는 파라미터의 dtype입니다. 생략 시 생성 규칙 또는 입력 dtype을 따릅니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>호출 대상 객체 자신을 반환해 method chaining을 지원합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-module-state-dict" data-search="mytorch.nn.Module.state_dict Module 객체의 state_dict 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.Module.state_dict</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-module-state-dict" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Module 객체의 state_dict 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Module.state_dict(self) -&gt; &#x27;OrderedDict[str, Tensor]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>이름과 GPU Tensor를 연결한 순서 보존 mapping입니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-module-load-state-dict" data-search="mytorch.nn.Module.load_state_dict Module 객체의 load_state_dict 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.Module.load_state_dict</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-module-load-state-dict" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Module 객체의 load_state_dict 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Module.load_state_dict(self, state_dict: &#x27;Mapping[str, Tensor]&#x27;, strict: &#x27;bool&#x27; = True) -&gt; &#x27;dict[str, list[str]]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>state_dict</code></td><td><code>&#x27;Mapping[str, Tensor]&#x27;</code></td><td><code>필수</code></td><td>파라미터와 persistent buffer 이름을 Tensor에 대응시킨 mapping입니다.</td></tr><tr><td><code>strict</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 state_dict의 누락·초과 key를 오류로 처리합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-linear" data-search="mytorch.nn.Linear 입력 마지막 축에 affine 변환 y = xWᵀ + b를 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.Linear</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-linear" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">입력 마지막 축에 affine 변환 y = xWᵀ + b를 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Linear(in_features: &#x27;int&#x27;, out_features: &#x27;int&#x27;, bias: &#x27;bool&#x27; = True, *, device: &#x27;str | int&#x27; = &#x27;cuda:0&#x27;, dtype: &#x27;Any&#x27; = &lt;class &#x27;numpy.float32&#x27;&gt;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>in_features</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>각 입력 sample의 마지막 축 크기입니다.</td></tr><tr><td><code>out_features</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>각 출력 sample의 마지막 축 크기입니다.</td></tr><tr><td><code>bias</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 학습 가능한 bias Parameter를 추가합니다.</td></tr><tr><td><code>device</code></td><td><code>&#x27;str | int&#x27;</code></td><td><code>&#x27;cuda:0&#x27;</code></td><td>CUDA 장치입니다. &#x27;cuda:N&#x27; 문자열 또는 정수 N을 사용하며 기본값은 cuda:0입니다.</td></tr><tr><td><code>dtype</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>&lt;class &#x27;numpy.float32&#x27;&gt;</code></td><td>결과 또는 파라미터의 dtype입니다. 생략 시 생성 규칙 또는 입력 dtype을 따릅니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 Linear 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>내부 곱 차원이 맞지 않으면 두 입력 shape를 포함한 ValueError가 발생합니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-sequential" data-search="mytorch.nn.Sequential 등록 순서대로 자식 Module의 출력을 다음 Module 입력으로 전달합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.Sequential</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-sequential" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">등록 순서대로 자식 Module의 출력을 다음 Module 입력으로 전달합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Sequential(*modules: &#x27;Module&#x27;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>modules</code></td><td><code>&#x27;Module&#x27;</code></td><td><code>가변 위치 인자</code></td><td>순서대로 등록할 Module iterable입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 Sequential 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-modulelist" data-search="mytorch.nn.ModuleList Module iterable을 등록 상태를 유지한 채 list처럼 보관합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.ModuleList</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-modulelist" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Module iterable을 등록 상태를 유지한 채 list처럼 보관합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.ModuleList(modules: &#x27;Iterable[Module] | None&#x27; = None) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>modules</code></td><td><code>&#x27;Iterable[Module] | None&#x27;</code></td><td><code>None</code></td><td>순서대로 등록할 Module iterable입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 ModuleList 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-modulelist-append" data-search="mytorch.nn.ModuleList.append ModuleList 객체의 append 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.ModuleList.append</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-modulelist-append" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">ModuleList 객체의 append 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.ModuleList.append(self, module: &#x27;Module&#x27;) -&gt; &#x27;ModuleList&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>module</code></td><td><code>&#x27;Module&#x27;</code></td><td><code>필수</code></td><td>등록할 자식 Module입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-modulelist-extend" data-search="mytorch.nn.ModuleList.extend ModuleList 객체의 extend 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.ModuleList.extend</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-modulelist-extend" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">ModuleList 객체의 extend 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.ModuleList.extend(self, modules: &#x27;Iterable[Module]&#x27;) -&gt; &#x27;ModuleList&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>modules</code></td><td><code>&#x27;Iterable[Module]&#x27;</code></td><td><code>필수</code></td><td>순서대로 등록할 Module iterable입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-parameterlist" data-search="mytorch.nn.ParameterList Parameter iterable을 등록 상태를 유지한 채 list처럼 보관합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.ParameterList</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-parameterlist" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Parameter iterable을 등록 상태를 유지한 채 list처럼 보관합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.ParameterList(parameters: &#x27;Iterable[Parameter] | None&#x27; = None) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>parameters</code></td><td><code>&#x27;Iterable[Parameter] | None&#x27;</code></td><td><code>None</code></td><td>등록할 Parameter iterable입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 ParameterList 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-parameterlist-append" data-search="mytorch.nn.ParameterList.append ParameterList 객체의 append 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.ParameterList.append</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-parameterlist-append" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">ParameterList 객체의 append 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.ParameterList.append(self, parameter: &#x27;Parameter&#x27;) -&gt; &#x27;ParameterList&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>parameter</code></td><td><code>&#x27;Parameter&#x27;</code></td><td><code>필수</code></td><td>ParameterList에 추가할 Parameter 또는 변환 가능한 Tensor 데이터입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-parameterlist-extend" data-search="mytorch.nn.ParameterList.extend ParameterList 객체의 extend 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.nn.ParameterList.extend</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-parameterlist-extend" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">ParameterList 객체의 extend 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.ParameterList.extend(self, parameters: &#x27;Iterable[Parameter]&#x27;) -&gt; &#x27;ParameterList&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>parameters</code></td><td><code>&#x27;Iterable[Parameter]&#x27;</code></td><td><code>필수</code></td><td>등록할 Parameter iterable입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-identity" data-search="mytorch.nn.Identity 입력을 변경하지 않고 그대로 반환합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.Identity</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-identity" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">입력을 변경하지 않고 그대로 반환합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Identity() -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 Identity 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-nn-flatten" data-search="mytorch.nn.Flatten 지정한 연속 축 범위를 하나의 축으로 평탄화합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.nn.Flatten</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-nn-flatten" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">지정한 연속 축 범위를 하나의 축으로 평탄화합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.nn.Flatten(start_dim: &#x27;int&#x27; = 1, end_dim: &#x27;int&#x27; = -1) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>start_dim</code></td><td><code>&#x27;int&#x27;</code></td><td><code>1</code></td><td>flatten을 시작할 첫 축입니다.</td></tr><tr><td><code>end_dim</code></td><td><code>&#x27;int&#x27;</code></td><td><code>-1</code></td><td>flatten에 포함할 마지막 축입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 Flatten 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    </div>
+      <nav class="page-end"><a href="../index.html">← 전체 모듈 목록으로</a></nav>
+    </main>
+    <button class="back-to-top" type="button" aria-label="맨 위로">↑</button>
+  </div>
+  <footer>MyTorch 0.7.0 · GPU-only educational framework · API는 현재 소스 시그니처에서 생성되었습니다.</footer>
+  <script src="../assets/js/search-index.js"></script>
+  <script src="../assets/js/docs.js"></script>
+</body>
+</html>

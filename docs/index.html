@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="CuPy와 CUDA 위에서만 동작하는 교육용 딥러닝 프레임워크의 한국어 API 레퍼런스">
+  <meta name="generator" content="MyTorch docs builder">
+  <title>API Documentation · MyTorch 0.7.0</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/css/docs.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">본문으로 건너뛰기</a>
+  <header class="topbar">
+    <button class="menu-button" type="button" aria-label="문서 메뉴 열기" aria-expanded="false">☰</button>
+    <a class="brand" href="index.html"><span class="brand-mark">M</span><span>MyTorch</span><span class="version">v0.7.0</span></a>
+    <div class="search-box">
+      <label class="sr-only" for="site-search">API 검색</label>
+      <input id="site-search" type="search" placeholder="API 검색…  /" autocomplete="off">
+      <div id="search-results" class="search-results" hidden></div>
+    </div>
+    <button class="theme-button" type="button" aria-label="색상 테마 전환">◐</button>
+  </header>
+  <div class="site-layout">
+    <aside class="sidebar" aria-label="문서 모듈 탐색">
+      <a class="overview-link" href="index.html">문서 홈</a>
+      <div class="nav-group"><span>Core</span><a href="api/tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="api/autograd.html">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Runtime</span><a href="api/cuda.html">CUDA 상태 확인</a></div><div class="nav-group"><span>Persistence</span><a href="api/serialization.html">모델 저장과 불러오기</a></div><div class="nav-group"><span>Neural network</span><a href="api/nn-core.html">Module과 기본 계층</a><a href="api/nn-activations.html">활성화 함수 Module</a><a href="api/nn-losses.html">손실 함수 Module</a><a href="api/nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="api/nn-conv.html">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="api/nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="api/nn-attention.html">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="api/nn-efficient.html">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="api/nn-functional-layers.html">함수형 계층 연산</a><a href="api/nn-functional-activations.html">함수형 활성화 연산</a><a href="api/nn-functional-losses.html">함수형 손실 연산</a></div><div class="nav-group"><span>Initialization</span><a href="api/nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="api/optim-optimizer.html">Optimizer 기반 클래스</a><a href="api/optim-sgd.html">SGD</a><a href="api/optim-adam.html">Adam 계열</a><a href="api/optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="api/optim-classical.html">ASGD와 Rprop</a><a href="api/optim-modern.html">Adafactor와 Lion</a></div>
+    </aside>
+    <main id="main" class="content">
+      <header class="home-header">
+        <div class="eyebrow">한국어 API Reference</div>
+        <h1>GPU에서 배우고,<br><span>GPU에서 끝나는 딥러닝.</span></h1>
+        <p>MyTorch 0.7.0의 Tensor, 자동미분, 신경망 계층, Transformer, BitNet, MoE와 optimizer를 실제 공개 시그니처에 맞춰 설명합니다.</p>
+        <div class="home-actions"><a class="primary" href="api/tensor.html">Tensor부터 시작</a><a href="#modules">모듈 찾아보기</a></div>
+      </header>
+      <section class="quickstart">
+        <div>
+          <span class="eyebrow">Quick start</span>
+          <h2>가장 작은 학습 루프</h2>
+          <p>모델, 손실, optimizer가 모두 같은 CUDA 장치에서 연결됩니다. CPU fallback은 없습니다.</p>
+        </div>
+        <pre><code>import mytorch as mt
+
+model = mt.nn.Sequential(
+    mt.nn.Linear(2, 16), mt.nn.ReLU(), mt.nn.Linear(16, 1)
+)
+optimizer = mt.optim.AdamW(model.parameters(), lr=1e-3)
+
+optimizer.zero_grad()
+loss = mt.nn.functional.mse_loss(model(x), target)
+loss.backward()
+optimizer.step()</code></pre>
+      </section>
+      <section class="conventions">
+        <h2>공통 규칙</h2>
+        <div class="rule-grid">
+          <article><strong>GPU only</strong><p>모든 forward, backward, optimizer state는 CUDA에 남습니다.</p></article>
+          <article><strong>기본 dtype</strong><p>Python 실수와 sequence는 별도 지정이 없으면 float32입니다.</p></article>
+          <article><strong>명시적 CPU 복사</strong><p>결과 확인은 Tensor.numpy() 또는 단일 원소의 item()을 사용합니다.</p></article>
+          <article><strong>동적 autograd</strong><p>requires_grad와 현재 gradient mode에 따라 실행 시점에 그래프를 만듭니다.</p></article>
+        </div>
+      </section>
+      <section id="modules" class="module-section">
+        <div class="section-heading"><div><span class="eyebrow">Modules</span><h2>모듈별 상세 문서</h2></div><p>각 페이지는 독립적인 시그니처·인자·반환·오류 규칙을 제공합니다.</p></div>
+        <div class="module-grid">
+        <a class="module-card searchable" href="api/tensor.html" data-search="mytorch.tensor Tensor와 기본 연산">
+          <span class="eyebrow">Core</span>
+          <h2>Tensor와 기본 연산</h2>
+          <code>mytorch.tensor</code>
+          <p>GPU 메모리에 데이터를 보관하는 Tensor, 생성 함수, 수학·축소·형태·인덱싱·선형대수 연산을 설명합니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            
+        <a class="module-card searchable" href="api/autograd.html" data-search="mytorch._autograd 자동미분과 gradient 모드">
+          <span class="eyebrow">Autograd</span>
+          <h2>자동미분과 gradient 모드</h2>
+          <code>mytorch._autograd</code>
+          <p>동적 계산 그래프, 역전파, gradient 누적, no_grad 컨텍스트의 사용 규칙을 설명합니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            
+        <a class="module-card searchable" href="api/cuda.html" data-search="mytorch.cuda CUDA 상태 확인">
+          <span class="eyebrow">Runtime</span>
+          <h2>CUDA 상태 확인</h2>
+          <code>mytorch.cuda</code>
+          <p>NVIDIA GPU와 CUDA 런타임의 가용성 및 장치 수를 확인하는 최소 인터페이스입니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            
+        <a class="module-card searchable" href="api/serialization.html" data-search="mytorch.serialization 모델 저장과 불러오기">
+          <span class="eyebrow">Persistence</span>
+          <h2>모델 저장과 불러오기</h2>
+          <code>mytorch.serialization</code>
+          <p>Module.state_dict()를 안전한 NPZ와 JSON 메타데이터 형식으로 저장하고 원하는 CUDA 장치로 복원합니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            
+        <a class="module-card searchable" href="api/nn-core.html" data-search="mytorch.nn.modules Module과 기본 계층">
+          <span class="eyebrow">Neural network</span>
+          <h2>Module과 기본 계층</h2>
+          <code>mytorch.nn.modules</code>
+          <p>Parameter 등록, 모델 상태, Module 컨테이너와 Linear·Flatten 같은 기본 구성요소만 모아 설명합니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            
+        <a class="module-card searchable" href="api/nn-activations.html" data-search="mytorch.nn.modules 활성화 함수 Module">
+          <span class="eyebrow">Neural network</span>
+          <h2>활성화 함수 Module</h2>
+          <code>mytorch.nn.modules</code>
+          <p>ReLU 계열, smooth activation, shrink 함수와 GLU 계열을 클래스형 API로 분리해 설명합니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            
+        <a class="module-card searchable" href="api/nn-losses.html" data-search="mytorch.nn.modules 손실 함수 Module">
+          <span class="eyebrow">Neural network</span>
+          <h2>손실 함수 Module</h2>
+          <code>mytorch.nn.modules</code>
+          <p>회귀, 분류, 확률분포, ranking, metric learning과 segmentation 손실의 클래스형 API를 설명합니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            
+        <a class="module-card searchable" href="api/nn-basic.html" data-search="mytorch.nn.modules 임베딩, Dropout, 정규화">
+          <span class="eyebrow">Neural network</span>
+          <h2>임베딩, Dropout, 정규화</h2>
+          <code>mytorch.nn.modules</code>
+          <p>Bilinear와 LazyLinear, 임베딩, 확률적 정규화, Batch·Layer·RMS·Group·Instance 정규화 계층을 설명합니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            
+        <a class="module-card searchable" href="api/nn-conv.html" data-search="mytorch.nn.modules Convolution과 Pooling">
+          <span class="eyebrow">Vision</span>
+          <h2>Convolution과 Pooling</h2>
+          <code>mytorch.nn.modules</code>
+          <p>1D·2D·3D 합성곱, 전치 합성곱, 고정·적응형 pooling 계층의 입력 shape와 공간 크기 계산을 설명합니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            
+        <a class="module-card searchable" href="api/nn-recurrent.html" data-search="mytorch.nn.recurrent RNN, GRU, LSTM">
+          <span class="eyebrow">Sequence</span>
+          <h2>RNN, GRU, LSTM</h2>
+          <code>mytorch.nn.recurrent</code>
+          <p>단일 step 셀과 다층·양방향 recurrent 계층의 입력, hidden state, 반환 shape를 설명합니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            
+        <a class="module-card searchable" href="api/nn-attention.html" data-search="mytorch.nn.modules Attention, Transformer, RoPE">
+          <span class="eyebrow">Transformer</span>
+          <h2>Attention, Transformer, RoPE</h2>
+          <code>mytorch.nn.modules</code>
+          <p>Scaled dot-product attention, multi-head projection, Transformer Encoder, rotary position embedding을 설명합니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            
+        <a class="module-card searchable" href="api/nn-efficient.html" data-search="mytorch.nn.modules LoRA, 양자화, BitNet, MoE">
+          <span class="eyebrow">Efficient models</span>
+          <h2>LoRA, 양자화, BitNet, MoE</h2>
+          <code>mytorch.nn.modules</code>
+          <p>저랭크 적응, 추론용 INT8·INT4, QAT용 BitLinear, 2-bit packed 추론, sparse mixture-of-experts 계층을 다룹니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            
+        <a class="module-card searchable" href="api/nn-functional-layers.html" data-search="mytorch.nn.functional 함수형 계층 연산">
+          <span class="eyebrow">Functional</span>
+          <h2>함수형 계층 연산</h2>
+          <code>mytorch.nn.functional</code>
+          <p>Parameter 상태를 보관하지 않는 선형·임베딩·정규화·dropout·합성곱·pooling·attention 연산입니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            
+        <a class="module-card searchable" href="api/nn-functional-activations.html" data-search="mytorch.nn.functional 함수형 활성화 연산">
+          <span class="eyebrow">Functional</span>
+          <h2>함수형 활성화 연산</h2>
+          <code>mytorch.nn.functional</code>
+          <p>상태 없는 활성화 함수를 수식 계열별로 모아 입력·인자·gradient 규칙을 설명합니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            
+        <a class="module-card searchable" href="api/nn-functional-losses.html" data-search="mytorch.nn.functional 함수형 손실 연산">
+          <span class="eyebrow">Functional</span>
+          <h2>함수형 손실 연산</h2>
+          <code>mytorch.nn.functional</code>
+          <p>회귀·분류·분포·ranking·metric·segmentation 손실의 입력 shape와 reduction 규칙을 설명합니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            
+        <a class="module-card searchable" href="api/nn-init.html" data-search="mytorch.nn.init 파라미터 초기화">
+          <span class="eyebrow">Initialization</span>
+          <h2>파라미터 초기화</h2>
+          <code>mytorch.nn.init</code>
+          <p>상수·균등·정규 분포와 Xavier·Kaiming 초기화로 Parameter 값을 GPU에서 설정합니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            
+        <a class="module-card searchable" href="api/optim-optimizer.html" data-search="mytorch.optim.optimizer Optimizer 기반 클래스">
+          <span class="eyebrow">Optimization</span>
+          <h2>Optimizer 기반 클래스</h2>
+          <code>mytorch.optim.optimizer</code>
+          <p>파라미터 그룹, 공통 옵션 검증, gradient 초기화, GPU optimizer state의 기본 계약을 설명합니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            
+        <a class="module-card searchable" href="api/optim-sgd.html" data-search="mytorch.optim.sgd SGD">
+          <span class="eyebrow">Optimization</span>
+          <h2>SGD</h2>
+          <code>mytorch.optim.sgd</code>
+          <p>기본 stochastic gradient descent, momentum, dampening, Nesterov, L2 weight decay를 설명합니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            
+        <a class="module-card searchable" href="api/optim-adam.html" data-search="mytorch.optim.adam Adam 계열">
+          <span class="eyebrow">Optimization</span>
+          <h2>Adam 계열</h2>
+          <code>mytorch.optim.adam</code>
+          <p>Adam, AdamW, Adamax, NAdam, RAdam의 moment state, bias correction, weight decay 차이를 설명합니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            
+        <a class="module-card searchable" href="api/optim-adaptive.html" data-search="mytorch.optim.adaptive Adagrad, RMSprop, Adadelta">
+          <span class="eyebrow">Optimization</span>
+          <h2>Adagrad, RMSprop, Adadelta</h2>
+          <code>mytorch.optim.adaptive</code>
+          <p>누적 또는 이동 평균 제곱 gradient로 파라미터별 학습률을 조절하는 optimizer를 설명합니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            
+        <a class="module-card searchable" href="api/optim-classical.html" data-search="mytorch.optim.classical ASGD와 Rprop">
+          <span class="eyebrow">Optimization</span>
+          <h2>ASGD와 Rprop</h2>
+          <code>mytorch.optim.classical</code>
+          <p>평균화 SGD와 부호 변화 기반 resilient update를 사용하는 고전 optimizer를 설명합니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            
+        <a class="module-card searchable" href="api/optim-modern.html" data-search="mytorch.optim.modern Adafactor와 Lion">
+          <span class="eyebrow">Optimization</span>
+          <h2>Adafactor와 Lion</h2>
+          <code>mytorch.optim.modern</code>
+          <p>메모리 효율적인 factorized second moment와 sign momentum 방식의 현대 optimizer를 설명합니다.</p>
+          <span class="card-link">모듈 문서 보기 →</span>
+        </a>
+            </div>
+      </section>
+      <section class="dtype-panel">
+        <div><span class="eyebrow">Public constants</span><h2>지원 dtype</h2></div>
+        <p><code>mt.float16</code> <code>mt.float32</code> <code>mt.float64</code> <code>mt.int8</code> <code>mt.int32</code> <code>mt.int64</code> <code>mt.uint8</code> <code>mt.bool</code></p>
+      </section>
+    </main>
+    <button class="back-to-top" type="button" aria-label="맨 위로">↑</button>
+  </div>
+  <footer>MyTorch 0.7.0 · GPU-only educational framework · API는 현재 소스 시그니처에서 생성되었습니다.</footer>
+  <script src="assets/js/search-index.js"></script>
+  <script src="assets/js/docs.js"></script>
+</body>
+</html>

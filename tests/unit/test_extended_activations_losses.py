@@ -1,13 +1,33 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import numpy as np
 import pytest
 
 import mytorch as mt
 from mytorch.nn import functional as F
-from tests.helpers import finite_difference
 
 pytestmark = pytest.mark.gpu
+
+
+def finite_difference(
+    function: Callable[[mt.Tensor], mt.Tensor],
+    values: np.ndarray,
+    epsilon: float = 1e-5,
+) -> np.ndarray:
+    """Compute a central finite-difference gradient for a scalar output."""
+    result = np.empty_like(values)
+    for index in np.ndindex(values.shape):
+        plus = values.copy()
+        minus = values.copy()
+        plus[index] += epsilon
+        minus[index] -= epsilon
+        result[index] = (
+            function(mt.tensor(plus)).sum().item()
+            - function(mt.tensor(minus)).sum().item()
+        ) / (2 * epsilon)
+    return result
 
 
 @pytest.mark.parametrize(
