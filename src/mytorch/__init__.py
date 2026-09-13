@@ -2,7 +2,8 @@
 
 import cupy as _cp
 
-from . import cuda, nn
+from . import cuda, nn, optim
+from ._autograd import enable_grad, is_grad_enabled, no_grad
 from .tensor import (
     Tensor,
     abs,
@@ -68,6 +69,7 @@ __all__ = [
     "dot",
     "empty",
     "empty_like",
+    "enable_grad",
     "exp",
     "eye",
     "float16",
@@ -87,9 +89,11 @@ __all__ = [
     "minimum",
     "mm",
     "nn",
+    "no_grad",
     "ones",
     "ones_like",
     "outer",
+    "optim",
     "prod",
     "rand",
     "randn",
@@ -104,5 +108,6 @@ __all__ = [
     "zeros",
     "zeros_like",
     "bool",
+    "is_grad_enabled",
 ]
-__version__ = "0.1.0"
+__version__ = "0.2.0"

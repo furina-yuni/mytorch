@@ -13,6 +13,9 @@ if TYPE_CHECKING:
     from .tensor import Tensor
 
 ArrayOperation = Callable[..., Any]
+BackwardOperation = Callable[
+    [cp.ndarray, cp.ndarray, tuple[Any, ...]], Sequence[cp.ndarray | None]
+]
 
 
 def _tensor_type():
@@ -55,8 +58,17 @@ def _unwrap(value: Any, device: int) -> Any:
     raise TypeError(f"unsupported operand type: {type(value).__name__}")
 
 
-def apply(operation: ArrayOperation, *inputs: Any, **kwargs: Any) -> Tensor:
-    """Run one forward operation and wrap its result without a host copy."""
+def apply(
+    operation: ArrayOperation,
+    *inputs: Any,
+    backward: BackwardOperation | None = None,
+    name: str | None = None,
+    differentiable: bool = True,
+    **kwargs: Any,
+) -> Tensor:
+    """Run one forward operation and optionally attach its reverse-mode VJP."""
+    from . import _autograd
+
     tensor_type = _tensor_type()
     device = _device_for(inputs)
     arrays = [_unwrap(value, device) for value in inputs]
@@ -64,15 +76,70 @@ def apply(operation: ArrayOperation, *inputs: Any, **kwargs: Any) -> Tensor:
         result = operation(*arrays, **kwargs)
         if not isinstance(result, cp.ndarray):
             result = cp.asarray(result)
-    return tensor_type._from_array(result)
+    tracked = [
+        (index, value)
+        for index, value in enumerate(inputs)
+        if isinstance(value, tensor_type) and value.requires_grad
+    ]
+    requires_grad = bool(
+        tracked
+        and differentiable
+        and result.dtype.kind == "f"
+        and _autograd.is_grad_enabled()
+    )
+    if not requires_grad:
+        return tensor_type._from_array(result)
+    if backward is None:
+        raise NotImplementedError(
+            f"backward is not implemented for {name or operation.__name__}"
+        )
+
+    tracked_indices = tuple(index for index, _ in tracked)
+    parents = tuple(value for _, value in tracked)
+    saved_arrays = tuple(arrays)
+
+    def vjp(gradient: cp.ndarray) -> Sequence[cp.ndarray | None]:
+        all_gradients = backward(gradient, result, saved_arrays)
+        if len(all_gradients) != len(inputs):
+            raise RuntimeError("an operation returned the wrong number of gradients")
+        return tuple(all_gradients[index] for index in tracked_indices)
+
+    node = _autograd.Node(
+        name=name or getattr(operation, "__name__", "operation"),
+        parents=parents,
+        backward_fn=vjp,
+        versions=tuple(parent._version for parent in parents),
+    )
+    return tensor_type._from_array(result, requires_grad=True, grad_fn=node)
 
 
-def binary(operation: ArrayOperation, left: Any, right: Any) -> Tensor:
-    return apply(operation, left, right)
+def binary(
+    operation: ArrayOperation,
+    left: Any,
+    right: Any,
+    *,
+    backward: BackwardOperation | None = None,
+    name: str | None = None,
+    differentiable: bool = True,
+) -> Tensor:
+    return apply(
+        operation,
+        left,
+        right,
+        backward=backward,
+        name=name,
+        differentiable=differentiable,
+    )
 
 
-def unary(operation: ArrayOperation, tensor: Tensor) -> Tensor:
-    return apply(operation, tensor)
+def unary(
+    operation: ArrayOperation,
+    tensor: Tensor,
+    *,
+    backward: BackwardOperation | None = None,
+    name: str | None = None,
+) -> Tensor:
+    return apply(operation, tensor, backward=backward, name=name)
 
 
 def reduction(
@@ -81,10 +148,22 @@ def reduction(
     *,
     dim: int | tuple[int, ...] | None = None,
     keepdim: bool = False,
+    backward: BackwardOperation | None = None,
+    name: str | None = None,
+    differentiable: bool = True,
     **kwargs: Any,
 ) -> Tensor:
     axes = normalize_dims(dim, tensor.ndim)
-    return apply(operation, tensor, axis=axes, keepdims=keepdim, **kwargs)
+    return apply(
+        operation,
+        tensor,
+        axis=axes,
+        keepdims=keepdim,
+        backward=backward,
+        name=name,
+        differentiable=differentiable,
+        **kwargs,
+    )
 
 
 def normalize_dims(
@@ -113,6 +192,7 @@ def matrix_binary(
     *,
     required_ndim: int | None = None,
     matching_batch: bool = False,
+    backward: BackwardOperation | None = None,
 ) -> Tensor:
     tensor_type = _tensor_type()
     if not isinstance(left, tensor_type) or not isinstance(right, tensor_type):
@@ -130,7 +210,7 @@ def matrix_binary(
             f"got shapes {left.shape} and {right.shape}"
         )
     try:
-        return apply(operation, left, right)
+        return apply(operation, left, right, backward=backward, name=name)
     except ValueError as exc:
         raise ValueError(
             f"{name} cannot operate on shapes {left.shape} and {right.shape}: {exc}"
@@ -143,7 +223,22 @@ def concatenate(tensors: Sequence[Tensor], dim: int = 0) -> Tensor:
     if not all(isinstance(tensor, _tensor_type()) for tensor in tensors):
         raise TypeError("cat expects a sequence containing only Tensors")
     axis = normalize_dims(dim, tensors[0].ndim)
-    return apply(lambda *arrays: cp.concatenate(arrays, axis=axis), *tensors)
+    sizes = tuple(tensor.shape[axis] for tensor in tensors)
+
+    def backward(gradient, _result, _arrays):
+        boundaries = []
+        current = 0
+        for size in sizes[:-1]:
+            current += size
+            boundaries.append(current)
+        return tuple(cp.split(gradient, boundaries, axis=axis))
+
+    return apply(
+        lambda *arrays: cp.concatenate(arrays, axis=axis),
+        *tensors,
+        backward=backward,
+        name="cat",
+    )
 
 
 def stack(tensors: Sequence[Tensor], dim: int = 0) -> Tensor:
@@ -155,7 +250,18 @@ def stack(tensors: Sequence[Tensor], dim: int = 0) -> Tensor:
     normalized = dim + ndim if dim < 0 else dim
     if normalized < 0 or normalized >= ndim:
         raise ValueError(f"dim {dim} is out of range for stack result with {ndim} dims")
-    return apply(lambda *arrays: cp.stack(arrays, axis=normalized), *tensors)
+
+    def backward(gradient, _result, arrays):
+        return tuple(
+            cp.take(gradient, index, axis=normalized) for index in range(len(arrays))
+        )
+
+    return apply(
+        lambda *arrays: cp.stack(arrays, axis=normalized),
+        *tensors,
+        backward=backward,
+        name="stack",
+    )
 
 
 def require_floating(tensor: Tensor, operation: str) -> None:

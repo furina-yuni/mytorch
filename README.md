@@ -1,7 +1,8 @@
 # MyTorch
 
 NVIDIA GPU에서만 수치 연산을 수행하는 교육용 Tensor 및 자동미분 프레임워크입니다.
-현재 단계에서는 GPU Tensor, 기본 수학·행렬 연산과 활성화 함수를 제공합니다.
+현재 단계에서는 GPU Tensor, 역방향 자동미분, MLP 레이어, 손실 함수와 SGD를
+제공합니다.
 
 ## 빠른 예제
 
@@ -18,6 +19,35 @@ probabilities = F.softmax(logits, dim=-1)
 print(logits)
 print(probabilities.numpy())  # 명시적으로 CPU NumPy 배열로 복사
 ```
+
+## 자동미분과 학습
+
+```python
+import mytorch as mt
+from mytorch.nn import functional as F
+
+x = mt.tensor([[1.0, 2.0], [3.0, 4.0]])
+target = mt.tensor([[3.0], [7.0]])
+
+model = mt.nn.Sequential(
+    mt.nn.Linear(2, 16),
+    mt.nn.ReLU(),
+    mt.nn.Linear(16, 1),
+)
+optimizer = mt.optim.SGD(model.parameters(), lr=0.05)
+
+optimizer.zero_grad()
+prediction = model(x)  # 순전파와 동적 계산 그래프 생성
+loss = F.mse_loss(prediction, target)
+loss.backward()  # GPU에서 역전파
+optimizer.step()  # GPU 파라미터 갱신
+```
+
+`requires_grad=True`인 실수 Tensor가 연산에 참여하면 동적 계산 그래프가
+생성됩니다. `backward()`는 leaf Tensor의 `grad`에 값을 누적하고 기본적으로
+사용한 그래프를 해제합니다. 같은 그래프를 다시 사용하려면 첫 호출에
+`retain_graph=True`를 지정합니다. 평가처럼 그래프가 필요 없는 코드는
+`with mt.no_grad():`로 감쌀 수 있습니다.
 
 Tensor 데이터와 연산 결과는 항상 CUDA 장치에 남습니다. 기본 dtype은
 `mt.float32`이며 `mt.float16`, `mt.float32`, `mt.float64`를 지원합니다.
@@ -36,6 +66,8 @@ Tensor 데이터와 연산 결과는 항상 CUDA 장치에 남습니다. 기본 
   `cat`, `stack` 및 읽기 전용 인덱싱
 - 활성화: `relu`, `leaky_relu`, `sigmoid`, `tanh`, `softmax`,
   `log_softmax`, `gelu`, `silu`, `softplus`
+- 신경망: `Module`, `Parameter`, `Linear`, `Sequential`, `Flatten`, 활성화 레이어
+- 손실·최적화: `mse_loss`, `cross_entropy`, `MSELoss`, `CrossEntropyLoss`, `SGD`
 
 활성화 함수는 `mytorch.nn.functional`에서 사용합니다. `relu`, `sigmoid`,
 `tanh`, `softmax`, `log_softmax`는 Tensor 메서드로도 호출할 수 있습니다.
