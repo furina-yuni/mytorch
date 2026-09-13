@@ -1,5 +1,7 @@
 # MyTorch
 
+> 한국어 API 레퍼런스: [MyTorch 0.7.0 HTML 문서](docs/index.html)
+
 NVIDIA GPU에서만 수치 연산을 수행하는 교육용 Tensor 및 자동미분 프레임워크입니다.
 현재 버전 0.7.0은 GPU Tensor와 자동미분뿐 아니라 CNN, RNN/LSTM/GRU,
 Transformer Encoder, 정규화, LoRA, BitNet, 저정밀 추론과 MoE를 제공합니다.
@@ -180,6 +182,22 @@ restored.load_state_dict(mt.load("model.npz", device="cuda:0"))
 NPZ에는 Parameter와 persistent buffer만 저장됩니다. BatchNorm running 통계,
 양자화 scale·packed weight와 LoRA merge 상태도 함께 복원됩니다. 임의 Python
 객체를 역직렬화하는 pickle은 사용하지 않습니다.
+
+## API 문서 관리
+
+문서는 [문서 홈](docs/index.html)과 17개의 모듈별 상세 페이지로 구성됩니다.
+설명 원본은 `docs/content`, 공통 디자인은 `docs/assets/css`, 검색·테마·모바일
+동작은 `docs/assets/js`에 분리되어 있습니다. HTML은 현재 Python 시그니처를
+읽어 생성하므로 코드와 문서의 인자 목록이 어긋나는 것을 줄일 수 있습니다.
+
+```powershell
+python scripts/build_docs.py
+python scripts/validate_docs.py
+```
+
+첫 명령은 설명 데이터와 실제 공개 API를 합쳐 정적 HTML을 다시 만들고, 두 번째
+명령은 버전, API 누락, 페이지·anchor·asset 링크, inline CSS/JavaScript가 없는지
+검사합니다. 생성된 문서는 별도 웹 프레임워크 없이 로컬에서 열 수 있습니다.
 
 ## 환경 만들기
 

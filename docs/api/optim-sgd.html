@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="기본 stochastic gradient descent, momentum, dampening, Nesterov, L2 weight decay를 설명합니다.">
+  <meta name="generator" content="MyTorch docs builder">
+  <title>SGD · MyTorch 0.7.0</title>
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/docs.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">본문으로 건너뛰기</a>
+  <header class="topbar">
+    <button class="menu-button" type="button" aria-label="문서 메뉴 열기" aria-expanded="false">☰</button>
+    <a class="brand" href="../index.html"><span class="brand-mark">M</span><span>MyTorch</span><span class="version">v0.7.0</span></a>
+    <div class="search-box">
+      <label class="sr-only" for="site-search">API 검색</label>
+      <input id="site-search" type="search" placeholder="API 검색…  /" autocomplete="off">
+      <div id="search-results" class="search-results" hidden></div>
+    </div>
+    <button class="theme-button" type="button" aria-label="색상 테마 전환">◐</button>
+  </header>
+  <div class="site-layout">
+    <aside class="sidebar" aria-label="문서 모듈 탐색">
+      <a class="overview-link" href="../index.html">문서 홈</a>
+      <div class="nav-group"><span>Core</span><a href="tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="autograd.html">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Runtime</span><a href="cuda.html">CUDA 상태 확인</a></div><div class="nav-group"><span>Persistence</span><a href="serialization.html">모델 저장과 불러오기</a></div><div class="nav-group"><span>Neural network</span><a href="nn-modules.html">Module, 컨테이너, 활성화·손실 클래스</a><a href="nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="nn-conv.html">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="nn-attention.html">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="nn-efficient.html">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="nn-functional.html">함수형 신경망 API</a></div><div class="nav-group"><span>Initialization</span><a href="nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="optim-optimizer.html">Optimizer 기반 클래스</a><a href="optim-sgd.html" aria-current="page">SGD</a><a href="optim-adam.html">Adam 계열</a><a href="optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="optim-other.html">ASGD, Rprop, Adafactor, Lion</a></div>
+    </aside>
+    <main id="main" class="content">
+      <header class="page-header">
+        <div class="eyebrow">Optimization · mytorch.optim.sgd</div>
+        <h1>SGD</h1>
+        <p>기본 stochastic gradient descent, momentum, dampening, Nesterov, L2 weight decay를 설명합니다.</p>
+        <div class="page-meta"><span>MyTorch 0.7.0</span><span>2개 API 항목</span><span>CUDA 전용</span></div>
+      </header>
+      <section class="concept-panel">
+        <div><h2>이 모듈을 사용할 때 알아둘 점</h2><ul><li>momentum=0이면 state buffer 없이 가장 단순한 update를 수행합니다.</li><li>nesterov=True는 momentum&gt;0이고 dampening=0일 때만 유효합니다.</li><li>weight_decay는 gradient에 L2 항을 더하는 coupled decay입니다.</li></ul></div>
+        <div><h2>기본 예제</h2><pre><code>optimizer = mt.optim.SGD(
+    model.parameters(), lr=0.05, momentum=0.9, nesterov=True
+)
+optimizer.zero_grad()
+loss.backward()
+optimizer.step()</code></pre></div>
+      </section>
+      <nav class="page-toc" aria-label="이 페이지의 API"><strong>페이지 목차</strong><div><a href="#api-mytorch-optim-sgd"><code>SGD</code></a><a href="#api-mytorch-optim-sgd-step"><code>SGD.step</code></a></div></nav>
+      <div class="api-list">
+      <article class="api-card searchable" id="api-mytorch-optim-sgd" data-search="mytorch.optim.SGD gradient, momentum, Nesterov와 선택적 L2 감쇠로 Parameter를 갱신합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.optim.SGD</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-sgd" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">gradient, momentum, Nesterov와 선택적 L2 감쇠로 Parameter를 갱신합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.SGD(params: &#x27;Iterable[Any]&#x27;, lr: &#x27;float&#x27; = 0.001, momentum: &#x27;float&#x27; = 0.0, dampening: &#x27;float&#x27; = 0.0, weight_decay: &#x27;float&#x27; = 0.0, nesterov: &#x27;bool&#x27; = False, maximize: &#x27;bool&#x27; = False) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>params</code></td><td><code>&#x27;Iterable[Any]&#x27;</code></td><td><code>필수</code></td><td>최적화할 Parameter iterable 또는 parameter-group dict iterable입니다.</td></tr><tr><td><code>lr</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.001</code></td><td>optimizer learning rate입니다. 양수여야 합니다.</td></tr><tr><td><code>momentum</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.0</code></td><td>이동 평균 또는 optimizer momentum 계수입니다.</td></tr><tr><td><code>dampening</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.0</code></td><td>SGD momentum에 새 gradient가 들어가는 양을 줄이는 계수입니다.</td></tr><tr><td><code>weight_decay</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.0</code></td><td>가중치 감쇠 계수입니다. optimizer에 따라 coupled 또는 decoupled 방식입니다.</td></tr><tr><td><code>nesterov</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>False</code></td><td>True이면 Nesterov momentum 공식을 사용합니다.</td></tr><tr><td><code>maximize</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>False</code></td><td>True이면 목적함수를 최소화하지 않고 최대화하는 방향으로 갱신합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 SGD 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-optim-sgd-step" data-search="mytorch.optim.SGD.step SGD 객체의 step 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.optim.SGD.step</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-sgd-step" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">SGD 객체의 step 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.SGD.step(self) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>None. 객체의 gradient, 난수 상태, 파일 또는 Parameter를 변경합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    </div>
+      <nav class="page-end"><a href="../index.html">← 전체 모듈 목록으로</a></nav>
+    </main>
+    <button class="back-to-top" type="button" aria-label="맨 위로">↑</button>
+  </div>
+  <footer>MyTorch 0.7.0 · GPU-only educational framework · API는 현재 소스 시그니처에서 생성되었습니다.</footer>
+  <script src="../assets/js/search-index.js"></script>
+  <script src="../assets/js/docs.js"></script>
+</body>
+</html>

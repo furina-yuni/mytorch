@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="동적 계산 그래프, 역전파, gradient 누적, no_grad 컨텍스트의 사용 규칙을 설명합니다.">
+  <meta name="generator" content="MyTorch docs builder">
+  <title>자동미분과 gradient 모드 · MyTorch 0.7.0</title>
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/docs.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">본문으로 건너뛰기</a>
+  <header class="topbar">
+    <button class="menu-button" type="button" aria-label="문서 메뉴 열기" aria-expanded="false">☰</button>
+    <a class="brand" href="../index.html"><span class="brand-mark">M</span><span>MyTorch</span><span class="version">v0.7.0</span></a>
+    <div class="search-box">
+      <label class="sr-only" for="site-search">API 검색</label>
+      <input id="site-search" type="search" placeholder="API 검색…  /" autocomplete="off">
+      <div id="search-results" class="search-results" hidden></div>
+    </div>
+    <button class="theme-button" type="button" aria-label="색상 테마 전환">◐</button>
+  </header>
+  <div class="site-layout">
+    <aside class="sidebar" aria-label="문서 모듈 탐색">
+      <a class="overview-link" href="../index.html">문서 홈</a>
+      <div class="nav-group"><span>Core</span><a href="tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="autograd.html" aria-current="page">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Runtime</span><a href="cuda.html">CUDA 상태 확인</a></div><div class="nav-group"><span>Persistence</span><a href="serialization.html">모델 저장과 불러오기</a></div><div class="nav-group"><span>Neural network</span><a href="nn-modules.html">Module, 컨테이너, 활성화·손실 클래스</a><a href="nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="nn-conv.html">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="nn-attention.html">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="nn-efficient.html">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="nn-functional.html">함수형 신경망 API</a></div><div class="nav-group"><span>Initialization</span><a href="nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="optim-optimizer.html">Optimizer 기반 클래스</a><a href="optim-sgd.html">SGD</a><a href="optim-adam.html">Adam 계열</a><a href="optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="optim-other.html">ASGD, Rprop, Adafactor, Lion</a></div>
+    </aside>
+    <main id="main" class="content">
+      <header class="page-header">
+        <div class="eyebrow">Autograd · mytorch._autograd</div>
+        <h1>자동미분과 gradient 모드</h1>
+        <p>동적 계산 그래프, 역전파, gradient 누적, no_grad 컨텍스트의 사용 규칙을 설명합니다.</p>
+        <div class="page-meta"><span>MyTorch 0.7.0</span><span>9개 API 항목</span><span>CUDA 전용</span></div>
+      </header>
+      <section class="concept-panel">
+        <div><h2>이 모듈을 사용할 때 알아둘 점</h2><ul><li>스칼라 결과는 gradient를 생략할 수 있지만 비스칼라 결과는 같은 shape와 device의 gradient가 필요합니다.</li><li>기본 backward는 그래프를 해제합니다. 같은 그래프를 다시 사용할 때는 첫 호출에 retain_graph=True를 지정합니다.</li><li>optimizer 갱신은 no_grad 상태에서 수행되며, forward 뒤 변경된 Tensor를 사용하는 backward는 version 검사로 거부됩니다.</li></ul></div>
+        <div><h2>기본 예제</h2><pre><code>import mytorch as mt
+
+x = mt.tensor([1.0, 2.0, 3.0], requires_grad=True)
+y = (x.square() * 2).sum()
+y.backward()
+print(x.grad.numpy())
+
+with mt.no_grad():
+    prediction = x * 3</code></pre></div>
+      </section>
+      <nav class="page-toc" aria-label="이 페이지의 API"><strong>페이지 목차</strong><div><a href="#api-mytorch-node"><code>Node</code></a><a href="#api-mytorch-node-apply"><code>Node.apply</code></a><a href="#api-mytorch-node-release"><code>Node.release</code></a><a href="#api-mytorch-backward"><code>backward</code></a><a href="#api-mytorch-enable-grad"><code>enable_grad</code></a><a href="#api-mytorch-is-grad-enabled"><code>is_grad_enabled</code></a><a href="#api-mytorch-no-grad"><code>no_grad</code></a><a href="#api-mytorch-set-grad-enabled"><code>set_grad_enabled</code></a><a href="#api-mytorch-sum-to-shape"><code>sum_to_shape</code></a></div></nav>
+      <div class="api-list">
+      <article class="api-card searchable" id="api-mytorch-node" data-search="mytorch.Node Node 신경망 구성요소를 생성합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.Node</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-node" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Node 신경망 구성요소를 생성합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.Node(name: &#x27;str&#x27;, parents: &#x27;tuple[Tensor, ...]&#x27;, backward_fn: &#x27;Backward | None&#x27;, versions: &#x27;tuple[int, ...]&#x27;, released: &#x27;bool&#x27; = False) -&gt; None</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>name</code></td><td><code>&#x27;str&#x27;</code></td><td><code>필수</code></td><td>등록하거나 조회할 이름입니다. 점(.)이 없는 비어 있지 않은 문자열이어야 합니다.</td></tr><tr><td><code>parents</code></td><td><code>&#x27;tuple[Tensor, ...]&#x27;</code></td><td><code>필수</code></td><td>역전파 노드가 참조하는 부모 Tensor tuple입니다.</td></tr><tr><td><code>backward_fn</code></td><td><code>&#x27;Backward | None&#x27;</code></td><td><code>필수</code></td><td>출력 gradient를 부모별 gradient로 변환하는 vector-Jacobian product callable입니다.</td></tr><tr><td><code>versions</code></td><td><code>&#x27;tuple[int, ...]&#x27;</code></td><td><code>필수</code></td><td>forward 시점 부모 Tensor의 version counter tuple입니다.</td></tr><tr><td><code>released</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>False</code></td><td>그래프 노드가 backward 뒤 해제되었는지를 나타냅니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 Node 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-node-apply" data-search="mytorch.Node.apply Node 객체의 apply 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.Node.apply</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-node-apply" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Node 객체의 apply 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.Node.apply(self, gradient: &#x27;cp.ndarray&#x27;) -&gt; &#x27;Sequence[cp.ndarray | None]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>gradient</code></td><td><code>&#x27;cp.ndarray&#x27;</code></td><td><code>필수</code></td><td>출력에 대한 초기 gradient입니다. 비스칼라 backward에서는 필수입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-node-release" data-search="mytorch.Node.release Node 객체의 release 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.Node.release</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-node-release" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Node 객체의 release 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.Node.release(self) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-backward" data-search="mytorch.backward GPU Tensor에 backward 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.backward</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-backward" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 backward 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.backward(output: &#x27;Tensor&#x27;, gradient: &#x27;Tensor | None&#x27;, retain_graph: &#x27;bool&#x27;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>output</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>역전파를 시작할 결과 Tensor입니다.</td></tr><tr><td><code>gradient</code></td><td><code>&#x27;Tensor | None&#x27;</code></td><td><code>필수</code></td><td>출력에 대한 초기 gradient입니다. 비스칼라 backward에서는 필수입니다.</td></tr><tr><td><code>retain_graph</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>필수</code></td><td>True이면 backward 후 그래프를 해제하지 않습니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>None. 객체의 gradient, 난수 상태, 파일 또는 Parameter를 변경합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-enable-grad" data-search="mytorch.enable_grad no_grad 안에서도 그래프 기록을 일시적으로 다시 켜는 context manager입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.enable_grad</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-enable-grad" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">no_grad 안에서도 그래프 기록을 일시적으로 다시 켜는 context manager입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.enable_grad()</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-is-grad-enabled" data-search="mytorch.is_grad_enabled 현재 실행 문맥에서 자동미분 기록이 활성화되었는지 반환합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.is_grad_enabled</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-is-grad-enabled" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">현재 실행 문맥에서 자동미분 기록이 활성화되었는지 반환합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.is_grad_enabled() -&gt; &#x27;bool&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>조건을 나타내는 Python bool입니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-no-grad" data-search="mytorch.no_grad 블록 안에서 자동미분 그래프 기록을 일시적으로 끄는 context manager입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.no_grad</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-no-grad" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">블록 안에서 자동미분 그래프 기록을 일시적으로 끄는 context manager입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.no_grad()</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-set-grad-enabled" data-search="mytorch.set_grad_enabled 자동미분 기록 상태를 지정 값으로 잠시 바꾸는 내부 친화적 context manager입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.set_grad_enabled</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-set-grad-enabled" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">자동미분 기록 상태를 지정 값으로 잠시 바꾸는 내부 친화적 context manager입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.set_grad_enabled(enabled: &#x27;bool&#x27;)</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>enabled</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>필수</code></td><td>True이면 현재 문맥에서 계산 그래프 기록을 활성화하고 False이면 비활성화합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    
+      <article class="api-card searchable" id="api-mytorch-sum-to-shape" data-search="mytorch.sum_to_shape GPU Tensor에 sum_to_shape 연산을 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.sum_to_shape</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-sum-to-shape" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GPU Tensor에 sum_to_shape 연산을 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.sum_to_shape(gradient: &#x27;cp.ndarray&#x27;, shape: &#x27;tuple[int, ...]&#x27;) -&gt; &#x27;cp.ndarray&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>gradient</code></td><td><code>&#x27;cp.ndarray&#x27;</code></td><td><code>필수</code></td><td>출력에 대한 초기 gradient입니다. 비스칼라 backward에서는 필수입니다.</td></tr><tr><td><code>shape</code></td><td><code>&#x27;tuple[int, ...]&#x27;</code></td><td><code>필수</code></td><td>생성하거나 변형할 Tensor의 크기입니다. 정수 나열 또는 tuple로 지정합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+    </div>
+      <nav class="page-end"><a href="../index.html">← 전체 모듈 목록으로</a></nav>
+    </main>
+    <button class="back-to-top" type="button" aria-label="맨 위로">↑</button>
+  </div>
+  <footer>MyTorch 0.7.0 · GPU-only educational framework · API는 현재 소스 시그니처에서 생성되었습니다.</footer>
+  <script src="../assets/js/search-index.js"></script>
+  <script src="../assets/js/docs.js"></script>
+</body>
+</html>
