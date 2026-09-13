@@ -1,7 +1,44 @@
 # MyTorch
 
 NVIDIA GPU에서만 수치 연산을 수행하는 교육용 Tensor 및 자동미분 프레임워크입니다.
-현재 단계에서는 전용 conda 환경과 CUDA 동작 검증 기반을 제공합니다.
+현재 단계에서는 GPU Tensor, 기본 수학·행렬 연산과 활성화 함수를 제공합니다.
+
+## 빠른 예제
+
+```python
+import mytorch as mt
+from mytorch.nn import functional as F
+
+x = mt.tensor([[1.0, 2.0], [3.0, 4.0]])
+w = mt.randn(2, 3)
+
+logits = x @ w
+probabilities = F.softmax(logits, dim=-1)
+
+print(logits)
+print(probabilities.numpy())  # 명시적으로 CPU NumPy 배열로 복사
+```
+
+Tensor 데이터와 연산 결과는 항상 CUDA 장치에 남습니다. 기본 dtype은
+`mt.float32`이며 `mt.float16`, `mt.float32`, `mt.float64`를 지원합니다.
+현재 공개 연산은 모두 out-of-place이고 자동 CPU 폴백은 없습니다.
+
+### 제공되는 연산
+
+- 생성: `tensor`, `zeros`, `ones`, `full`, `arange`, `linspace`, `eye`,
+  `rand`, `randn` 및 `*_like`
+- 수학: 사칙연산, 거듭제곱, `exp`, `log`, `sqrt`, `square`, `sin`, `cos`,
+  `maximum`, `minimum`, `clip`
+- 축소: `sum`, `mean`, `prod`, `max`, `min`, `var`, `std`, `argmax`,
+  `argmin`
+- 행렬: `matmul`, `dot`, `mm`, `bmm`, `outer`
+- 형태: `reshape`, `flatten`, `squeeze`, `unsqueeze`, `transpose`, `permute`,
+  `cat`, `stack` 및 읽기 전용 인덱싱
+- 활성화: `relu`, `leaky_relu`, `sigmoid`, `tanh`, `softmax`,
+  `log_softmax`, `gelu`, `silu`, `softplus`
+
+활성화 함수는 `mytorch.nn.functional`에서 사용합니다. `relu`, `sigmoid`,
+`tanh`, `softmax`, `log_softmax`는 Tensor 메서드로도 호출할 수 있습니다.
 
 ## 환경 만들기
 

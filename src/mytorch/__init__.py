@@ -1,6 +1,108 @@
-"""GPU-only tensor framework foundations."""
+"""GPU-only tensor framework."""
 
-from . import cuda
+import cupy as _cp
 
-__all__ = ["cuda"]
+from . import cuda, nn
+from .tensor import (
+    Tensor,
+    abs,
+    arange,
+    argmax,
+    argmin,
+    bmm,
+    cat,
+    clip,
+    cos,
+    dot,
+    empty,
+    empty_like,
+    exp,
+    eye,
+    full,
+    linspace,
+    log,
+    manual_seed,
+    matmul,
+    max,
+    maximum,
+    mean,
+    min,
+    minimum,
+    mm,
+    ones,
+    ones_like,
+    outer,
+    prod,
+    rand,
+    randn,
+    sin,
+    sqrt,
+    square,
+    stack,
+    std,
+    sum,
+    tensor,
+    var,
+    zeros,
+    zeros_like,
+)
+
+bool = _cp.bool_
+float16 = _cp.float16
+float32 = _cp.float32
+float64 = _cp.float64
+int32 = _cp.int32
+int64 = _cp.int64
+
+__all__ = [
+    "Tensor",
+    "abs",
+    "argmax",
+    "argmin",
+    "arange",
+    "bmm",
+    "cat",
+    "clip",
+    "cos",
+    "cuda",
+    "dot",
+    "empty",
+    "empty_like",
+    "exp",
+    "eye",
+    "float16",
+    "float32",
+    "float64",
+    "full",
+    "int32",
+    "int64",
+    "linspace",
+    "log",
+    "manual_seed",
+    "matmul",
+    "max",
+    "mean",
+    "maximum",
+    "min",
+    "minimum",
+    "mm",
+    "nn",
+    "ones",
+    "ones_like",
+    "outer",
+    "prod",
+    "rand",
+    "randn",
+    "sin",
+    "sqrt",
+    "square",
+    "stack",
+    "std",
+    "sum",
+    "tensor",
+    "var",
+    "zeros",
+    "zeros_like",
+    "bool",
+]
 __version__ = "0.1.0"
