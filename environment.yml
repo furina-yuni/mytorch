@@ -1,0 +1,15 @@
+name: mytorch-gpu
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.12
+  - cupy=14.2.*
+  - cuda-version=13.2
+  - numpy>=2.0,<2.5
+  - pip
+  - setuptools
+  - wheel
+  - pytest
+  - pytest-cov
+  - ruff
