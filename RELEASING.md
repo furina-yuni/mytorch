@@ -6,18 +6,13 @@ because it belongs to another project.
 
 ## 1. Configure the repository once
 
-1. Create a GitHub repository, add it as `origin`, and add its Documentation,
-   Issues, and Repository URLs to `[project.urls]` in `pyproject.toml`.
-2. Enable private vulnerability reporting and branch protection.
-3. Add a self-hosted Windows x64 runner with labels `self-hosted`, `Windows`,
+1. Enable private vulnerability reporting and branch protection for the
+   GitHub repository.
+2. Add a self-hosted Windows x64 runner with labels `self-hosted`, `Windows`,
    `X64`, `gpu`, and `nvidia`. Its `mytorch-gpu` Conda environment must be
    reproducible from `environment.yml`.
-4. On TestPyPI and PyPI, create trusted publishers for the GitHub workflow
+3. On TestPyPI and PyPI, create trusted publishers for the GitHub workflow
    `.github/workflows/publish.yml` and environments `testpypi` and `pypi`.
-
-No repository URL is currently configured. This does not invalidate the wheel,
-but adding verified project links before public publication is strongly
-recommended.
 
 ## 2. Validate on the GPU runner
 

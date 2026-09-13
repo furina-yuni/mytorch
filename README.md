@@ -14,6 +14,7 @@ FP16 AMP와 learning-rate scheduler를 제공합니다.
 
 배포 패키지 이름은 `mytorch-gpu`이고 Python import 이름은 `mytorch`입니다.
 PyPI의 `mytorch` 이름은 별도의 기존 프로젝트가 소유하고 있습니다.
+소스와 이슈는 [GitHub 저장소](https://github.com/furina-yuni/mytorch)에서 관리합니다.
 
 ## 저장소 구조
 

@@ -49,6 +49,11 @@ dev = [
   "twine>=6",
 ]
 
+[project.urls]
+Documentation = "https://github.com/furina-yuni/mytorch/tree/main/docs"
+Issues = "https://github.com/furina-yuni/mytorch/issues"
+Repository = "https://github.com/furina-yuni/mytorch"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
