@@ -7,9 +7,12 @@ dependencies:
   - cupy=14.2.*
   - cuda-version=13.2
   - numpy>=2.0,<2.5
+  - pillow
   - pip
   - setuptools
   - wheel
+  - python-build
+  - twine
   - pytest
   - pytest-cov
   - ruff

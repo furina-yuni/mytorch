@@ -3,18 +3,57 @@ requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mytorch"
-version = "0.9.0"
-description = "A GPU-only educational tensor and autograd framework"
+name = "mytorch-gpu"
+version = "0.12.0"
+description = "A GPU-only educational tensor, autograd, and neural-network framework"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+  { name = "MyTorch contributors" },
+]
+keywords = [
+  "autograd",
+  "cuda",
+  "deep-learning",
+  "gpu",
+  "neural-network",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Education",
+  "Intended Audience :: Science/Research",
+  "Operating System :: Microsoft :: Windows",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
-  "cupy>=14.2,<14.3",
+  "cupy-cuda13x[ctk]>=14.2,<14.3",
   "numpy>=2.0,<2.5",
+  "pillow>=11",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest>=8",
+  "pytest-cov>=5",
+]
+dev = [
+  "build>=1.2",
+  "pytest>=8",
+  "pytest-cov>=5",
+  "ruff>=0.11",
+  "twine>=6",
 ]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools]
+include-package-data = false
 
 [tool.pytest.ini_options]
 addopts = "-ra"

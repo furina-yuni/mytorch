@@ -2,7 +2,7 @@
 
 import cupy as _cp
 
-from . import cuda, data, nn, optim
+from . import amp, cuda, data, nn, optim
 from ._autograd import enable_grad, is_grad_enabled, no_grad
 from .serialization import (
     get_rng_state,
@@ -86,6 +86,7 @@ uint8 = _cp.uint8
 
 __all__ = [
     "Tensor",
+    "amp",
     "abs",
     "argmax",
     "argmin",
@@ -167,4 +168,4 @@ __all__ = [
     "is_grad_enabled",
     "uint8",
 ]
-__version__ = "0.9.0"
+__version__ = "0.12.0"

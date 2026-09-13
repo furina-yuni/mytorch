@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import csv
 import random
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Callable, Iterator, Sequence
+from pathlib import Path
+from typing import Any
+
+import numpy as np
 
 from mytorch.tensor import Tensor, tensor
 
@@ -19,6 +24,14 @@ class Dataset[SampleT](ABC):
     @abstractmethod
     def __len__(self) -> int:
         """Return the number of samples."""
+
+
+class IterableDataset[SampleT](ABC):
+    """Base class for datasets that stream samples instead of indexing them."""
+
+    @abstractmethod
+    def __iter__(self) -> Iterator[SampleT]:
+        """Return a fresh sample iterator."""
 
 
 def _normalize_index(index: int, length: int) -> int:
@@ -117,4 +130,193 @@ def random_split[SampleT](
     return tuple(result)
 
 
-__all__ = ["Dataset", "Subset", "TensorDataset", "random_split"]
+class ImageFolder(Dataset[tuple[Any, int]]):
+    """Load RGB images arranged in ``root/class_name/image`` folders."""
+
+    _DEFAULT_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp"}
+
+    def __init__(
+        self,
+        root: str | Path,
+        transform: Callable[[Any], Any] | None = None,
+        target_transform: Callable[[int], Any] | None = None,
+        *,
+        extensions: Sequence[str] | None = None,
+    ) -> None:
+        self.root = Path(root)
+        if not self.root.is_dir():
+            raise ValueError(f"ImageFolder root is not a directory: {self.root}")
+        self.transform = transform
+        self.target_transform = target_transform
+        allowed = (
+            self._DEFAULT_EXTENSIONS
+            if extensions is None
+            else {str(value).lower() for value in extensions}
+        )
+        self.classes = sorted(
+            path.name for path in self.root.iterdir() if path.is_dir()
+        )
+        if not self.classes:
+            raise ValueError("ImageFolder found no class directories")
+        self.class_to_idx = {name: index for index, name in enumerate(self.classes)}
+        self.samples = [
+            (path, self.class_to_idx[class_name])
+            for class_name in self.classes
+            for path in sorted((self.root / class_name).rglob("*"))
+            if path.is_file() and path.suffix.lower() in allowed
+        ]
+        if not self.samples:
+            raise ValueError("ImageFolder found no supported image files")
+
+    def __len__(self) -> int:
+        return len(self.samples)
+
+    def __getitem__(self, index: int) -> tuple[Any, Any]:
+        from PIL import Image
+
+        path, target = self.samples[_normalize_index(index, len(self))]
+        with Image.open(path) as source:
+            image = source.convert("RGB").copy()
+        if self.transform is not None:
+            image = self.transform(image)
+        if self.target_transform is not None:
+            target = self.target_transform(target)
+        return image, target
+
+
+class CSVDataset(Dataset[tuple[np.ndarray, Any]]):
+    """Index rows from a CSV file as numeric features and a target."""
+
+    def __init__(
+        self,
+        path: str | Path,
+        *,
+        target_column: str | int,
+        feature_columns: Sequence[str | int] | None = None,
+        delimiter: str = ",",
+        has_header: bool = True,
+        feature_dtype: Any = np.float32,
+        target_dtype: Any = np.int64,
+        transform: Callable[[np.ndarray], Any] | None = None,
+        target_transform: Callable[[Any], Any] | None = None,
+    ) -> None:
+        self.path = Path(path)
+        if not self.path.is_file():
+            raise ValueError(f"CSV file does not exist: {self.path}")
+        if not isinstance(delimiter, str) or len(delimiter) != 1:
+            raise ValueError("delimiter must be one character")
+        with self.path.open("r", newline="", encoding="utf-8-sig") as handle:
+            rows = list(csv.reader(handle, delimiter=delimiter))
+        if not rows:
+            raise ValueError("CSV file is empty")
+        header = rows.pop(0) if has_header else None
+        width = len(header) if header is not None else len(rows[0])
+        if not rows or any(len(row) != width for row in rows):
+            raise ValueError("CSV rows must have a consistent, non-zero width")
+
+        def column_index(value: str | int) -> int:
+            if isinstance(value, str):
+                if header is None:
+                    raise ValueError("string columns require has_header=True")
+                if value not in header:
+                    raise ValueError(f"unknown CSV column: {value}")
+                return header.index(value)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError("CSV columns must be names or integer indices")
+            normalized = value + width if value < 0 else value
+            if normalized < 0 or normalized >= width:
+                raise ValueError(f"CSV column index is out of range: {value}")
+            return normalized
+
+        self.target_index = column_index(target_column)
+        if feature_columns is None:
+            self.feature_indices = [
+                index for index in range(width) if index != self.target_index
+            ]
+        else:
+            self.feature_indices = [column_index(value) for value in feature_columns]
+        if not self.feature_indices or self.target_index in self.feature_indices:
+            raise ValueError("feature columns must be non-empty and exclude target")
+        self.rows = rows
+        self.feature_dtype = np.dtype(feature_dtype)
+        self.target_dtype = np.dtype(target_dtype)
+        self.transform = transform
+        self.target_transform = target_transform
+
+    def __len__(self) -> int:
+        return len(self.rows)
+
+    def __getitem__(self, index: int) -> tuple[Any, Any]:
+        row = self.rows[_normalize_index(index, len(self))]
+        try:
+            features = np.asarray(
+                [row[position] for position in self.feature_indices],
+                dtype=self.feature_dtype,
+            )
+            target = np.asarray(row[self.target_index], dtype=self.target_dtype).item()
+        except (TypeError, ValueError) as error:
+            raise ValueError(
+                f"CSV row {index} contains invalid numeric data"
+            ) from error
+        if self.transform is not None:
+            features = self.transform(features)
+        if self.target_transform is not None:
+            target = self.target_transform(target)
+        return features, target
+
+
+class NpyDataset(Dataset[Any]):
+    """Memory-map feature and optional target NPY arrays."""
+
+    def __init__(
+        self,
+        data_path: str | Path,
+        target_path: str | Path | None = None,
+        *,
+        mmap_mode: str | None = "r",
+        transform: Callable[[Any], Any] | None = None,
+        target_transform: Callable[[Any], Any] | None = None,
+    ) -> None:
+        self.data = np.load(Path(data_path), mmap_mode=mmap_mode, allow_pickle=False)
+        if self.data.ndim == 0:
+            raise ValueError("NpyDataset data must have a sample dimension")
+        self.targets = (
+            None
+            if target_path is None
+            else np.load(Path(target_path), mmap_mode=mmap_mode, allow_pickle=False)
+        )
+        if self.targets is not None and (
+            self.targets.ndim == 0 or len(self.targets) != len(self.data)
+        ):
+            raise ValueError("NpyDataset data and targets must have equal lengths")
+        self.transform = transform
+        self.target_transform = target_transform
+
+    def __len__(self) -> int:
+        return len(self.data)
+
+    def __getitem__(self, index: int) -> Any:
+        normalized = _normalize_index(index, len(self))
+        value = np.asarray(self.data[normalized])
+        if self.transform is not None:
+            value = self.transform(value)
+        if self.targets is None:
+            return value
+        target = np.asarray(self.targets[normalized])
+        if target.ndim == 0:
+            target = target.item()
+        if self.target_transform is not None:
+            target = self.target_transform(target)
+        return value, target
+
+
+__all__ = [
+    "CSVDataset",
+    "Dataset",
+    "ImageFolder",
+    "IterableDataset",
+    "NpyDataset",
+    "Subset",
+    "TensorDataset",
+    "random_split",
+]

@@ -1,12 +1,19 @@
 # MyTorch
 
 > 한국어 API 레퍼런스는 `python scripts/build_docs.py` 실행 후
-> [MyTorch 0.9.0 HTML 문서](docs/index.html)에서 확인할 수 있습니다.
+> [MyTorch 0.12.0 HTML 문서](docs/index.html)에서 확인할 수 있습니다.
+
+> **Beta software:** 연구·학습용 공개 프리릴리스입니다. PyTorch와의 완전한
+> API/수치 호환성이나 장기 체크포인트 호환성을 아직 보장하지 않습니다.
 
 NVIDIA GPU에서만 수치 연산을 수행하는 교육용 Tensor 및 자동미분 프레임워크입니다.
-현재 버전 0.9.0은 GPU Tensor와 자동미분뿐 아니라 Dataset/DataLoader,
+현재 버전 0.12.0은 GPU Tensor와 자동미분뿐 아니라 실제 파일 DataLoader,
 CNN, RNN/LSTM/GRU,
-Transformer Encoder, 정규화, LoRA, BitNet, 저정밀 추론과 MoE를 제공합니다.
+Transformer Encoder, 정규화, LoRA, BitNet, 저정밀 추론, MoE,
+FP16 AMP와 learning-rate scheduler를 제공합니다.
+
+배포 패키지 이름은 `mytorch-gpu`이고 Python import 이름은 `mytorch`입니다.
+PyPI의 `mytorch` 이름은 별도의 기존 프로젝트가 소유하고 있습니다.
 
 ## 저장소 구조
 
@@ -81,6 +88,38 @@ sample tuple로 연결합니다. 기본 `DataLoader`는 TensorDataset을 한 sam
 복사하지 않고 batch index를 이용해 GPU에서 한 번에 선택합니다. 일반 사용자
 정의 Dataset은 `__len__`과 `__getitem__`을 구현하면 사용할 수 있습니다.
 
+### 실제 이미지·CSV·NPY 데이터
+
+```python
+transform = mt.data.transforms.Compose([
+    mt.data.transforms.Resize((224, 224)),
+    mt.data.transforms.RandomHorizontalFlip(),
+    mt.data.transforms.ToArray(),
+    mt.data.transforms.Normalize(
+        [0.485, 0.456, 0.406],
+        [0.229, 0.224, 0.225],
+    ),
+])
+dataset = mt.data.ImageFolder("data/train", transform=transform)
+loader = mt.data.DataLoader(
+    dataset,
+    batch_size=64,
+    shuffle=True,
+    num_workers=4,
+    prefetch_factor=2,
+    persistent_workers=True,
+    pin_memory=True,
+    device="cuda:0",
+    seed=2026,
+)
+```
+
+`ImageFolder`는 `root/class_name/image.png` 구조를 label과 연결합니다.
+`CSVDataset`은 feature·target 열을 선택하고, `NpyDataset`은 큰 NPY 파일을
+memory-map할 수 있습니다. Thread worker는 파일 읽기와 transform만 담당하며,
+main thread가 완성된 NumPy batch를 pinned memory에서 CUDA stream으로 전송합니다.
+`TensorDataset`은 계속 GPU index fast path를 사용합니다.
+
 `requires_grad=True`인 실수 Tensor가 연산에 참여하면 동적 계산 그래프가
 생성됩니다. `backward()`는 leaf Tensor의 `grad`에 값을 누적하고 기본적으로
 사용한 그래프를 해제합니다. 같은 그래프를 다시 사용하려면 첫 호출에
@@ -133,6 +172,9 @@ Tensor 데이터와 연산 결과는 항상 CUDA 장치에 남습니다. 기본 
   cosine·contrastive 계열, Focal 및 Dice
 - 최적화: `SGD`, `Adagrad`, `RMSprop`, `Adadelta`, `Adam`, `AdamW`,
   `Adamax`, `NAdam`, `RAdam`, `ASGD`, `Rprop`, `Adafactor`, `Lion`
+- 스케줄러: `StepLR`, `MultiStepLR`, `ExponentialLR`, `LinearLR`,
+  `CosineAnnealingLR`, `CosineAnnealingWarmRestarts`, `SequentialLR`,
+  `OneCycleLR`, `ReduceLROnPlateau`
 
 활성화 함수는 `mytorch.nn.functional`에서 사용합니다. `relu`, `sigmoid`,
 `tanh`, `softmax`, `log_softmax`는 Tensor 메서드로도 호출할 수 있습니다.
@@ -174,6 +216,35 @@ optimizer = mt.optim.AdamW(
     weight_decay=1e-2,
 )
 ```
+
+## FP16 AMP와 Learning Rate Scheduler
+
+```python
+optimizer = mt.optim.AdamW(model.parameters(), lr=3e-4)
+warmup = mt.optim.LinearLR(optimizer, start_factor=0.1, total_iters=5)
+cosine = mt.optim.CosineAnnealingLR(optimizer, T_max=95)
+scheduler = mt.optim.SequentialLR(optimizer, [warmup, cosine], milestones=[5])
+scaler = mt.amp.GradScaler()
+
+for epoch in range(100):
+    model.train()
+    for inputs, targets in loader:
+        optimizer.zero_grad()
+        with mt.amp.autocast():
+            loss = criterion(model(inputs), targets)
+        scaler.scale(loss).backward()
+        updated = scaler.step(optimizer)
+        scaler.update()
+    scheduler.step()  # epoch 단위 scheduler
+```
+
+`autocast`는 FP32 master Parameter를 유지하면서 Linear·행렬곱·합성곱을
+FP16으로 실행합니다. softmax, normalization, loss와 주요 reduction은 FP32로
+계산합니다. Batch 단위 scheduler를 사용한다면 `updated`가 `True`일 때만
+`scheduler.step()`을 호출해 overflow로 생략된 optimizer step과 동기화합니다.
+
+`ReduceLROnPlateau`는 일반 scheduler와 달리 검증이 끝난 뒤
+`scheduler.step(validation_loss)`로 호출합니다.
 
 ## Transformer와 BitLinear
 
@@ -232,6 +303,8 @@ mt.save_checkpoint(
         "epoch": epoch,
         "model": model.state_dict(),
         "optimizer": optimizer.state_dict(),
+        "scheduler": scheduler.state_dict(),
+        "scaler": scaler.state_dict(),
         "dataloader": loader.state_dict(),
         "rng_state": mt.get_rng_state(),
     },
@@ -241,6 +314,8 @@ mt.save_checkpoint(
 checkpoint = mt.load_checkpoint("training.mtz", device="cuda:0")
 model.load_state_dict(checkpoint["model"])
 optimizer.load_state_dict(checkpoint["optimizer"])
+scheduler.load_state_dict(checkpoint["scheduler"])
+scaler.load_state_dict(checkpoint["scaler"])
 loader.load_state_dict(checkpoint["dataloader"])
 mt.set_rng_state(checkpoint["rng_state"])
 start_epoch = checkpoint["epoch"]
@@ -253,7 +328,7 @@ start_epoch = checkpoint["epoch"]
 
 ## API 문서 관리
 
-생성된 문서는 [문서 홈](docs/index.html)과 22개의 모듈·기능별 상세 페이지로 구성됩니다.
+생성된 문서는 [문서 홈](docs/index.html)과 27개의 모듈·기능별 상세 페이지로 구성됩니다.
 설명 원본은 `docs/content`, 공통 디자인은 `docs/assets/css`, 검색·테마·모바일
 동작은 `docs/assets/js`에 분리되어 있습니다. HTML은 현재 Python 시그니처를
 읽어 생성하므로 코드와 문서의 인자 목록이 어긋나는 것을 줄일 수 있습니다.
@@ -276,11 +351,11 @@ Miniconda가 PowerShell에 아직 연결되지 않았다면 한 번만 실행합
 & 'C:\Users\mintc\miniconda3\Scripts\conda.exe' init powershell
 ```
 
-PowerShell을 다시 연 다음 프로젝트 루트에서 실행합니다.
+PowerShell을 다시 연 다음 프로젝트 루트에서 실행합니다. 이 방식이 Windows에서
+검증된 권장 설치 방법입니다.
 
 ```powershell
-conda create -n mytorch-gpu --override-channels -c conda-forge `
-  --strict-channel-priority -f environment.yml
+conda env create -f environment.yml
 conda activate mytorch-gpu
 python -m pip install -e . --no-deps --no-build-isolation
 ```
@@ -290,6 +365,20 @@ python -m pip install -e . --no-deps --no-build-isolation
 CUDA와 외부 Python 의존성은 모두 `mytorch-gpu` 환경의 conda-forge 패키지로
 관리합니다. 시스템에는 NVIDIA 디스플레이 드라이버만 필요합니다.
 
+### PyPI wheel로 설치
+
+깨끗한 Python 3.12 가상환경에서는 다음과 같이 설치할 수 있습니다.
+
+```powershell
+python -m pip install mytorch-gpu==0.12.0
+python -c "import mytorch as mt; print(mt.__version__, mt.cuda.is_available())"
+```
+
+PyPI 설치는 `cupy-cuda13x[ctk]`를 통해 CUDA 13 사용자 공간 구성요소를 같은
+가상환경에 설치합니다. 호환 NVIDIA 드라이버는 여전히 Windows 시스템에 있어야
+합니다. Conda 설치와 PyPI CuPy 설치를 한 환경에서 혼합하거나 `cupy`와
+`cupy-cuda13x`를 동시에 설치하면 안 됩니다.
+
 ## 확인하기
 
 ```powershell
@@ -298,6 +387,9 @@ python scripts/gpu_smoke_test.py
 pytest
 ruff check .
 ruff format --check .
+python -m build
+python -m twine check dist/*
+python scripts/check_release.py --dist-dir dist
 ```
 
 `nvcc`는 현재 환경의 필수 항목이 아닙니다. 이후 `.cu` 파일의 오프라인 컴파일이
@@ -314,3 +406,14 @@ conda create -n mytorch-gpu --override-channels -c conda-forge `
 conda activate mytorch-gpu
 python -m pip install -e . --no-deps --no-build-isolation
 ```
+
+## 지원 범위와 배포
+
+- Python 3.12, Windows x86-64, NVIDIA CUDA GPU 전용
+- CuPy 14.2와 CUDA runtime 13.2에서 검증
+- CPU는 파일 I/O, 이미지 디코딩과 명시적인 NumPy 변환에만 사용
+- 공개 라이선스: [MIT](LICENSE)
+- 변경 내역: [CHANGELOG.md](CHANGELOG.md)
+- 기여 방법: [CONTRIBUTING.md](CONTRIBUTING.md)
+- 릴리스 절차: [RELEASING.md](RELEASING.md)
+- 보안 정책: [SECURITY.md](SECURITY.md)

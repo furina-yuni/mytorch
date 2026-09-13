@@ -179,15 +179,18 @@ def main() -> None:
     guide_requirements = (
         "훈련 전체 코드",
         "추론 전체 코드",
-        "mt.data.TensorDataset(train_x, train_y)",
+        "mt.data.ImageFolder(",
         "mt.data.DataLoader(",
-        "optimizer.zero_grad(set_to_none=True)",
-        "loss.backward()",
-        "optimizer.step()",
+        "optimizer.zero_grad()",
+        "with mt.amp.autocast():",
+        "scaler.scale(loss).backward()",
+        "scaler.step(optimizer)",
+        "scheduler.step()",
         "model.eval()",
-        "with mt.no_grad():",
-        "mt.save(model.state_dict(), CHECKPOINT)",
-        "model.load_state_dict(state, strict=True)",
+        "with mt.no_grad(), mt.amp.autocast():",
+        "mt.save_checkpoint(",
+        "mt.load_checkpoint(",
+        "model.load_state_dict(",
     )
     if not all(value in guide_document for value in guide_requirements):
         raise AssertionError("training/inference guide is missing an essential step")

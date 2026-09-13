@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="이미지를 CPU에서 resize·crop·flip하고 CHW float32 배열로 변환·정규화하는 조합 가능한 전처리 API입니다.">
+  <meta name="generator" content="MyTorch docs builder">
+  <title>이미지 Transform · MyTorch 0.12.0</title>
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/docs.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">본문으로 건너뛰기</a>
+  <header class="topbar">
+    <button class="menu-button" type="button" aria-label="문서 메뉴 열기" aria-expanded="false">☰</button>
+    <a class="brand" href="../index.html"><span class="brand-mark">M</span><span>MyTorch</span><span class="version">v0.12.0</span></a>
+    <div class="search-box">
+      <label class="sr-only" for="site-search">API 검색</label>
+      <input id="site-search" type="search" placeholder="API 검색…  /" autocomplete="off">
+      <div id="search-results" class="search-results" hidden></div>
+    </div>
+    <button class="theme-button" type="button" aria-label="색상 테마 전환">◐</button>
+  </header>
+  <div class="site-layout">
+    <aside class="sidebar" aria-label="문서 모듈 탐색">
+      <a class="overview-link" href="../index.html">문서 홈</a>
+      <div class="nav-group"><span>Guides</span><a href="../guides/training-and-inference.html">처음부터 끝까지: 학습과 추론</a></div><div class="nav-group"><span>Core</span><a href="tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="autograd.html">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Training</span><a href="amp.html">FP16 자동 혼합정밀도</a></div><div class="nav-group"><span>Runtime</span><a href="cuda.html">CUDA 상태 확인</a></div><div class="nav-group"><span>Persistence</span><a href="serialization.html">모델과 학습 체크포인트</a></div><div class="nav-group"><span>Data</span><a href="data.html">Dataset과 DataLoader</a><a href="data-transforms.html" aria-current="page">이미지 Transform</a></div><div class="nav-group"><span>Neural network</span><a href="nn-core.html">Module과 기본 계층</a><a href="nn-activations.html">활성화 함수 Module</a><a href="nn-losses.html">손실 함수 Module</a><a href="nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="nn-conv.html">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="nn-attention.html">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="nn-efficient.html">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="nn-functional-layers.html">함수형 계층 연산</a><a href="nn-functional-activations.html">함수형 활성화 연산</a><a href="nn-functional-losses.html">함수형 손실 연산</a></div><div class="nav-group"><span>Initialization</span><a href="nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="optim-schedulers.html">Learning Rate Scheduler</a><a href="optim-optimizer.html">Optimizer 기반 클래스</a><a href="optim-sgd.html">SGD</a><a href="optim-adam.html">Adam 계열</a><a href="optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="optim-classical.html">ASGD와 Rprop</a><a href="optim-modern.html">Adafactor와 Lion</a></div>
+    </aside>
+    <main id="main" class="content">
+      <header class="page-header">
+        <div class="eyebrow">Data · mytorch.data.transforms</div>
+        <h1>이미지 Transform</h1>
+        <p>이미지를 CPU에서 resize·crop·flip하고 CHW float32 배열로 변환·정규화하는 조합 가능한 전처리 API입니다.</p>
+        <div class="page-meta"><span>MyTorch 0.12.0</span><span>7개 API 항목</span><span>CUDA 전용</span></div>
+      </header>
+      <section class="concept-panel">
+        <div><h2>이 모듈을 사용할 때 알아둘 점</h2><ul><li>기하 transform을 먼저 적용한 다음 ToArray로 CHW float32 배열을 만들고 마지막에 Normalize를 적용합니다.</li><li>RandomCrop과 RandomHorizontalFlip은 DataLoader가 sample별 seed를 제공하므로 worker 완료 순서와 무관하게 재현됩니다.</li><li>transform은 worker에서 실행되며 GPU Tensor 생성은 batch collate와 main-thread 전송 단계에서만 일어납니다.</li></ul></div>
+        <div><h2>기본 예제</h2><pre><code>from mytorch.data import transforms
+
+train_transform = transforms.Compose([
+    transforms.Resize((256, 256)),
+    transforms.RandomCrop((224, 224)),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToArray(),
+    transforms.Normalize([0.485, 0.456, 0.406],
+                         [0.229, 0.224, 0.225]),
+])</code></pre></div>
+      </section>
+      <nav class="page-toc" aria-label="이 페이지의 API"><strong>페이지 목차</strong><div><a href="#api-mytorch-data-transforms-centercrop"><code>CenterCrop</code></a><a href="#api-mytorch-data-transforms-compose"><code>Compose</code></a><a href="#api-mytorch-data-transforms-normalize"><code>Normalize</code></a><a href="#api-mytorch-data-transforms-randomcrop"><code>RandomCrop</code></a><a href="#api-mytorch-data-transforms-randomhorizontalflip"><code>RandomHorizontalFlip</code></a><a href="#api-mytorch-data-transforms-resize"><code>Resize</code></a><a href="#api-mytorch-data-transforms-toarray"><code>ToArray</code></a></div></nav>
+      <div class="api-list"><article class="api-card searchable" id="api-mytorch-data-transforms-centercrop" data-search="mytorch.data.transforms.CenterCrop 이미지 중앙에서 지정 크기를 잘라내고 부족한 영역은 padding합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.data.transforms.CenterCrop</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-data-transforms-centercrop" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">이미지 중앙에서 지정 크기를 잘라내고 부족한 영역은 padding합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.data.transforms.CenterCrop(size: &#x27;int | Sequence[int]&#x27;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>size</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>필수</code></td><td>resize 또는 crop 결과의 높이·너비입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 CenterCrop 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다.</li><li>멀티프로세스 worker와 pinned CPU memory는 GPU 전용 loader에서 지원하지 않습니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-data-transforms-compose" data-search="mytorch.data.transforms.Compose 여러 CPU transform을 등록 순서대로 하나의 sample에 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.data.transforms.Compose</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-data-transforms-compose" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">여러 CPU transform을 등록 순서대로 하나의 sample에 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.data.transforms.Compose(transforms: &#x27;Sequence[Callable[[Any], Any]]&#x27;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>transforms</code></td><td><code>&#x27;Sequence[Callable[[Any], Any]]&#x27;</code></td><td><code>필수</code></td><td>Compose가 순서대로 적용할 CPU transform callable 목록입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 Compose 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다.</li><li>멀티프로세스 worker와 pinned CPU memory는 GPU 전용 loader에서 지원하지 않습니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-data-transforms-normalize" data-search="mytorch.data.transforms.Normalize CHW 배열에 channel별 (input - mean) / std를 적용합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.data.transforms.Normalize</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-data-transforms-normalize" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">CHW 배열에 channel별 (input - mean) / std를 적용합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.data.transforms.Normalize(mean: &#x27;Sequence[float]&#x27;, std: &#x27;Sequence[float]&#x27;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>mean</code></td><td><code>&#x27;Sequence[float]&#x27;</code></td><td><code>필수</code></td><td>Normalize에서 channel별로 뺄 평균입니다.</td></tr><tr><td><code>std</code></td><td><code>&#x27;Sequence[float]&#x27;</code></td><td><code>필수</code></td><td>정규분포 표준편차입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 Normalize 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다.</li><li>멀티프로세스 worker와 pinned CPU memory는 GPU 전용 loader에서 지원하지 않습니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-data-transforms-randomcrop" data-search="mytorch.data.transforms.RandomCrop 재현 가능한 sample RNG로 이미지의 무작위 위치를 crop합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.data.transforms.RandomCrop</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-data-transforms-randomcrop" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">재현 가능한 sample RNG로 이미지의 무작위 위치를 crop합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.data.transforms.RandomCrop(size: &#x27;int | Sequence[int]&#x27;, padding: &#x27;int&#x27; = 0) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>size</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>필수</code></td><td>resize 또는 crop 결과의 높이·너비입니다.</td></tr><tr><td><code>padding</code></td><td><code>&#x27;int&#x27;</code></td><td><code>0</code></td><td>입력 양쪽에 추가할 0 padding 크기입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 RandomCrop 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다.</li><li>멀티프로세스 worker와 pinned CPU memory는 GPU 전용 loader에서 지원하지 않습니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-data-transforms-randomhorizontalflip" data-search="mytorch.data.transforms.RandomHorizontalFlip 지정 확률로 이미지의 좌우를 뒤집습니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.data.transforms.RandomHorizontalFlip</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-data-transforms-randomhorizontalflip" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">지정 확률로 이미지의 좌우를 뒤집습니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.data.transforms.RandomHorizontalFlip(p: &#x27;float&#x27; = 0.5) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>p</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.5</code></td><td>확률, norm 차수 또는 optimizer 설정입니다. 문맥에 따른 허용 범위를 확인하십시오.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 RandomHorizontalFlip 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다.</li><li>멀티프로세스 worker와 pinned CPU memory는 GPU 전용 loader에서 지원하지 않습니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-data-transforms-resize" data-search="mytorch.data.transforms.Resize 이미지를 지정한 높이와 너비로 보간해 변경합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.data.transforms.Resize</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-data-transforms-resize" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">이미지를 지정한 높이와 너비로 보간해 변경합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.data.transforms.Resize(size: &#x27;int | Sequence[int]&#x27;, interpolation: &#x27;str&#x27; = &#x27;bilinear&#x27;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>size</code></td><td><code>&#x27;int | Sequence[int]&#x27;</code></td><td><code>필수</code></td><td>resize 또는 crop 결과의 높이·너비입니다.</td></tr><tr><td><code>interpolation</code></td><td><code>&#x27;str&#x27;</code></td><td><code>&#x27;bilinear&#x27;</code></td><td>Resize에서 사용할 nearest, bilinear 또는 bicubic 방식입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 Resize 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다.</li><li>멀티프로세스 worker와 pinned CPU memory는 GPU 전용 loader에서 지원하지 않습니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-data-transforms-toarray" data-search="mytorch.data.transforms.ToArray PIL 또는 NumPy 이미지를 CHW 형식의 연속 NumPy 배열로 변환합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.data.transforms.ToArray</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-data-transforms-toarray" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">PIL 또는 NumPy 이미지를 CHW 형식의 연속 NumPy 배열로 변환합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.data.transforms.ToArray(dtype: &#x27;Any&#x27; = &lt;class &#x27;numpy.float32&#x27;&gt;, scale: &#x27;bool&#x27; = True) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>dtype</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>&lt;class &#x27;numpy.float32&#x27;&gt;</code></td><td>결과 또는 파라미터의 dtype입니다. 생략 시 생성 규칙 또는 입력 dtype을 따릅니다.</td></tr><tr><td><code>scale</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>기본 1/sqrt(head_dim)을 대체할 attention score 배율입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 ToArray 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다.</li><li>멀티프로세스 worker와 pinned CPU memory는 GPU 전용 loader에서 지원하지 않습니다.</li></ul>
+          </div>
+        </section>
+      </article></div>
+      <nav class="page-end"><a href="../index.html">← 전체 모듈 목록으로</a></nav>
+    </main>
+    <button class="back-to-top" type="button" aria-label="맨 위로">↑</button>
+  </div>
+  <footer>MyTorch 0.12.0 · GPU-only educational framework · API는 현재 소스 시그니처에서 생성되었습니다.</footer>
+  <script src="../assets/js/search-index.js"></script>
+  <script src="../assets/js/docs.js"></script>
+</body>
+</html>

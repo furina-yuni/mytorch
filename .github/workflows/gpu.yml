@@ -1,0 +1,33 @@
+name: NVIDIA GPU validation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  full-gpu-suite:
+    runs-on: [self-hosted, Windows, X64, gpu, nvidia]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update isolated Conda environment
+        shell: powershell
+        run: |
+          conda env update -n mytorch-gpu -f environment.yml --prune
+          conda run -n mytorch-gpu python -m pip install -e . --no-deps --no-build-isolation
+      - name: Unit and integration tests
+        shell: powershell
+        run: >-
+          conda run -n mytorch-gpu pytest
+          --cov=mytorch --cov-branch --cov-report=term-missing
+      - name: GPU smoke test
+        shell: powershell
+        run: conda run -n mytorch-gpu python scripts/gpu_smoke_test.py
+      - name: Build and validate documentation
+        shell: powershell
+        run: |
+          conda run -n mytorch-gpu python scripts/build_docs.py
+          conda run -n mytorch-gpu python scripts/validate_docs.py
+

@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Dataset과 DataLoader로 GPU mini-batch를 만들고 분류 모델을 학습·평가·저장한 뒤 별도 프로그램에서 추론하는 전체 흐름입니다.">
+  <meta name="description" content="ImageFolder와 비동기 DataLoader로 GPU mini-batch를 만들고 AMP·scheduler로 학습한 뒤 전체 checkpoint를 복원해 추론하는 흐름입니다.">
   <meta name="generator" content="MyTorch docs builder">
-  <title>처음부터 끝까지: 학습과 추론 · MyTorch 0.9.0</title>
+  <title>처음부터 끝까지: 학습과 추론 · MyTorch 0.12.0</title>
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="../assets/css/docs.css">
 </head>
@@ -13,7 +13,7 @@
   <a class="skip-link" href="#main">본문으로 건너뛰기</a>
   <header class="topbar">
     <button class="menu-button" type="button" aria-label="문서 메뉴 열기" aria-expanded="false">☰</button>
-    <a class="brand" href="../index.html"><span class="brand-mark">M</span><span>MyTorch</span><span class="version">v0.9.0</span></a>
+    <a class="brand" href="../index.html"><span class="brand-mark">M</span><span>MyTorch</span><span class="version">v0.12.0</span></a>
     <div class="search-box">
       <label class="sr-only" for="site-search">API 검색</label>
       <input id="site-search" type="search" placeholder="API 검색…  /" autocomplete="off">
@@ -24,134 +24,113 @@
   <div class="site-layout">
     <aside class="sidebar" aria-label="문서 모듈 탐색">
       <a class="overview-link" href="../index.html">문서 홈</a>
-      <div class="nav-group"><span>Guides</span><a href="training-and-inference.html" aria-current="page">처음부터 끝까지: 학습과 추론</a></div><div class="nav-group"><span>Core</span><a href="../api/tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="../api/autograd.html">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Runtime</span><a href="../api/cuda.html">CUDA 상태 확인</a></div><div class="nav-group"><span>Persistence</span><a href="../api/serialization.html">모델과 학습 체크포인트</a></div><div class="nav-group"><span>Data</span><a href="../api/data.html">Dataset과 DataLoader</a></div><div class="nav-group"><span>Neural network</span><a href="../api/nn-core.html">Module과 기본 계층</a><a href="../api/nn-activations.html">활성화 함수 Module</a><a href="../api/nn-losses.html">손실 함수 Module</a><a href="../api/nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="../api/nn-conv.html">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="../api/nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="../api/nn-attention.html">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="../api/nn-efficient.html">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="../api/nn-functional-layers.html">함수형 계층 연산</a><a href="../api/nn-functional-activations.html">함수형 활성화 연산</a><a href="../api/nn-functional-losses.html">함수형 손실 연산</a></div><div class="nav-group"><span>Initialization</span><a href="../api/nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="../api/optim-optimizer.html">Optimizer 기반 클래스</a><a href="../api/optim-sgd.html">SGD</a><a href="../api/optim-adam.html">Adam 계열</a><a href="../api/optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="../api/optim-classical.html">ASGD와 Rprop</a><a href="../api/optim-modern.html">Adafactor와 Lion</a></div>
+      <div class="nav-group"><span>Guides</span><a href="training-and-inference.html" aria-current="page">처음부터 끝까지: 학습과 추론</a></div><div class="nav-group"><span>Core</span><a href="../api/tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="../api/autograd.html">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Training</span><a href="../api/amp.html">FP16 자동 혼합정밀도</a></div><div class="nav-group"><span>Runtime</span><a href="../api/cuda.html">CUDA 상태 확인</a></div><div class="nav-group"><span>Persistence</span><a href="../api/serialization.html">모델과 학습 체크포인트</a></div><div class="nav-group"><span>Data</span><a href="../api/data.html">Dataset과 DataLoader</a><a href="../api/data-transforms.html">이미지 Transform</a></div><div class="nav-group"><span>Neural network</span><a href="../api/nn-core.html">Module과 기본 계층</a><a href="../api/nn-activations.html">활성화 함수 Module</a><a href="../api/nn-losses.html">손실 함수 Module</a><a href="../api/nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="../api/nn-conv.html">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="../api/nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="../api/nn-attention.html">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="../api/nn-efficient.html">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="../api/nn-functional-layers.html">함수형 계층 연산</a><a href="../api/nn-functional-activations.html">함수형 활성화 연산</a><a href="../api/nn-functional-losses.html">함수형 손실 연산</a></div><div class="nav-group"><span>Initialization</span><a href="../api/nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="../api/optim-schedulers.html">Learning Rate Scheduler</a><a href="../api/optim-optimizer.html">Optimizer 기반 클래스</a><a href="../api/optim-sgd.html">SGD</a><a href="../api/optim-adam.html">Adam 계열</a><a href="../api/optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="../api/optim-classical.html">ASGD와 Rprop</a><a href="../api/optim-modern.html">Adafactor와 Lion</a></div>
     </aside>
     <main id="main" class="content">
       <header class="page-header guide-header">
         <div class="eyebrow">Guides · End-to-end</div>
         <h1>처음부터 끝까지: 학습과 추론</h1>
-        <p>Dataset과 DataLoader로 GPU mini-batch를 만들고 분류 모델을 학습·평가·저장한 뒤 별도 프로그램에서 추론하는 전체 흐름입니다.</p>
-        <div class="page-meta"><span>MyTorch 0.9.0</span><span>학습 예제</span><span>추론 예제</span><span>CUDA 전용</span></div>
+        <p>ImageFolder와 비동기 DataLoader로 GPU mini-batch를 만들고 AMP·scheduler로 학습한 뒤 전체 checkpoint를 복원해 추론하는 흐름입니다.</p>
+        <div class="page-meta"><span>MyTorch 0.12.0</span><span>학습 예제</span><span>추론 예제</span><span>CUDA 전용</span></div>
       </header>
       <section class="guide-intro">
         <h2>먼저 이해할 세 가지</h2>
-        <ul><li>TensorDataset은 입력과 라벨의 첫 번째 축을 sample 단위로 연결하고, DataLoader는 이를 mini-batch로 나누어 매 epoch 공급합니다.</li><li>학습에서는 model.train()을 호출하고 각 batch마다 gradient 초기화 → forward → loss → backward → optimizer 갱신 순서를 지킵니다.</li><li>평가와 추론에서는 model.eval()로 계층 동작을 전환하고 mt.no_grad()로 계산 그래프 생성을 막습니다. 모든 수치 데이터와 optimizer 상태는 GPU에 유지됩니다.</li></ul>
+        <ul><li>ImageFolder는 클래스별 폴더를 label과 연결하고 CPU transform 뒤 DataLoader가 pinned-memory batch를 GPU로 전송합니다.</li><li>학습에서는 autocast forward → scaled backward → 안전한 optimizer step → scheduler 순서를 지킵니다.</li><li>평가와 추론에서는 model.eval()과 mt.no_grad()를 함께 사용하며 checkpoint에서 동일 모델 Parameter를 복원합니다.</li></ul>
       </section>
-      <section class="training-flow" aria-label="학습과 추론의 전체 순서"><article><span>1</span><h3>Dataset</h3><p>GPU 입력과 라벨을 sample 단위로 연결합니다.</p></article><article><span>2</span><h3>DataLoader</h3><p>batch 크기, shuffle과 재현 seed를 설정합니다.</p></article><article><span>3</span><h3>학습</h3><p>각 mini-batch에서 backward와 optimizer step을 반복합니다.</p></article><article><span>4</span><h3>평가·저장</h3><p>eval과 no_grad로 검증한 뒤 state_dict를 저장합니다.</p></article><article><span>5</span><h3>추론</h3><p>같은 모델 구조에 state를 복원해 새 입력을 예측합니다.</p></article></section>
+      <section class="training-flow" aria-label="학습과 추론의 전체 순서"><article><span>1</span><h3>Dataset·Transform</h3><p>파일과 label을 연결하고 resize·정규화를 적용합니다.</p></article><article><span>2</span><h3>DataLoader</h3><p>thread prefetch와 비동기 GPU batch 전송을 설정합니다.</p></article><article><span>3</span><h3>AMP 학습</h3><p>autocast와 GradScaler로 안정적인 FP16 학습을 실행합니다.</p></article><article><span>4</span><h3>Schedule·저장</h3><p>learning rate를 조절하고 전체 학습 상태를 checkpoint로 저장합니다.</p></article><article><span>5</span><h3>추론</h3><p>모델 state를 복원하고 별도 이미지 batch를 예측합니다.</p></article></section>
       <nav class="page-toc guide-toc" aria-label="이 페이지의 목차">
         <strong>이 페이지에서 다루는 내용</strong>
         <div><a href="#training">훈련 전체 코드</a><a href="#training-notes">훈련 핵심 설명</a><a href="#inference">추론 전체 코드</a><a href="#inference-notes">추론 핵심 설명</a><a href="#checklist">최종 점검표</a></div>
       </nav>
       <section class="guide-section" id="training">
         <div class="guide-section-heading"><div><span class="eyebrow">Training</span><h2>모델 훈련과 저장</h2></div><p>아래 코드를 <code>train_classifier.py</code>로 저장하고 먼저 실행합니다.</p></div>
-        <div class="code-example"><div class="code-example-bar"><span>train_classifier.py</span><span>CUDA · DataLoader · AdamW</span></div><pre><code>&quot;&quot;&quot;Train a mini-batch GPU classifier and save its state.&quot;&quot;&quot;
+        <div class="code-example"><div class="code-example-bar"><span>train_classifier.py</span><span>CUDA · DataLoader · AdamW</span></div><pre><code>&quot;&quot;&quot;Train an ImageFolder classifier with AMP, scheduling, and checkpoints.&quot;&quot;&quot;
+
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
 
 import mytorch as mt
 
-DEVICE = &quot;cuda:0&quot;
-CHECKPOINT = &quot;classifier.npz&quot;
 
-
-class Classifier(mt.nn.Module):
-    def __init__(self, device: str = DEVICE) -&gt; None:
+class ImageClassifier(mt.nn.Module):
+    def __init__(self, classes: int) -&gt; None:
         super().__init__()
-        self.network = mt.nn.Sequential(
-            mt.nn.Linear(2, 16, device=device),
+        self.features = mt.nn.Sequential(
+            mt.nn.Conv2d(3, 16, 3, padding=1),
             mt.nn.ReLU(),
-            mt.nn.Linear(16, 3, device=device),
+            mt.nn.MaxPool2d(2),
+            mt.nn.Conv2d(16, 32, 3, padding=1),
+            mt.nn.ReLU(),
+            mt.nn.AdaptiveAvgPool2d((1, 1)),
         )
+        self.classifier = mt.nn.Linear(32, classes)
 
-    def forward(self, inputs: mt.Tensor) -&gt; mt.Tensor:
-        # A classification model returns logits, not probabilities.
-        return self.network(inputs)
-
-
-def make_data() -&gt; tuple[mt.data.TensorDataset, mt.Tensor, mt.Tensor]:
-    # Python values move to the selected GPU when tensor() is called.
-    train_x = mt.tensor(
-        [
-            [-2.4, -1.2],
-            [-2.0, -0.8],
-            [-1.8, -1.4],
-            [-2.2, -0.5],
-            [2.4, -1.2],
-            [2.0, -0.8],
-            [1.8, -1.4],
-            [2.2, -0.5],
-            [-0.4, 2.2],
-            [0.0, 1.7],
-            [0.5, 2.4],
-            [-0.6, 1.5],
-        ],
-        dtype=mt.float32,
-        device=DEVICE,
-    )
-    train_y = mt.tensor(
-        [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2],
-        dtype=mt.int64,
-        device=DEVICE,
-    )
-    valid_x = mt.tensor(
-        [
-            [-2.1, -1.0],
-            [-1.7, -0.7],
-            [2.1, -1.0],
-            [1.7, -0.7],
-            [0.0, 2.1],
-            [0.4, 1.8],
-        ],
-        dtype=mt.float32,
-        device=DEVICE,
-    )
-    valid_y = mt.tensor([0, 0, 1, 1, 2, 2], dtype=mt.int64, device=DEVICE)
-    return mt.data.TensorDataset(train_x, train_y), valid_x, valid_y
-
-
-def accuracy(logits: mt.Tensor, target: mt.Tensor) -&gt; float:
-    predicted = logits.argmax(dim=1)
-    # Copy only the final scalar to CPU for display.
-    return float((predicted == target).mean().item())
+    def forward(self, input: mt.Tensor) -&gt; mt.Tensor:
+        return self.classifier(self.features(input).flatten(1))
 
 
 def main() -&gt; None:
-    if not mt.cuda.is_available():
-        raise RuntimeError(&quot;MyTorch training requires a CUDA GPU&quot;)
+    parser = argparse.ArgumentParser()
+    parser.add_argument(&quot;data&quot;, type=Path, help=&quot;root/class_name/image directory&quot;)
+    parser.add_argument(&quot;--epochs&quot;, type=int, default=10)
+    parser.add_argument(&quot;--checkpoint&quot;, type=Path, default=Path(&quot;image-training.mtz&quot;))
+    args = parser.parse_args()
 
     mt.manual_seed(2026)
-    train_dataset, valid_x, valid_y = make_data()
-    train_loader = mt.data.DataLoader(
-        train_dataset,
-        batch_size=4,
+    transform = mt.data.transforms.Compose(
+        [
+            mt.data.transforms.Resize((32, 32)),
+            mt.data.transforms.RandomHorizontalFlip(),
+            mt.data.transforms.ToArray(),
+            mt.data.transforms.Normalize([0.5] * 3, [0.5] * 3),
+        ]
+    )
+    dataset = mt.data.ImageFolder(args.data, transform=transform)
+    loader = mt.data.DataLoader(
+        dataset,
+        batch_size=64,
         shuffle=True,
+        num_workers=4,
+        prefetch_factor=2,
+        persistent_workers=True,
+        pin_memory=True,
         seed=2026,
     )
-    model = Classifier()
+    model = ImageClassifier(len(dataset.classes))
+    optimizer = mt.optim.AdamW(model.parameters(), lr=3e-3)
+    scheduler = mt.optim.CosineAnnealingLR(optimizer, T_max=args.epochs)
+    scaler = mt.amp.GradScaler()
     criterion = mt.nn.CrossEntropyLoss()
-    optimizer = mt.optim.AdamW(model.parameters(), lr=0.03, weight_decay=1e-4)
 
-    for epoch in range(1, 301):
-        model.train()
-        for batch_x, batch_y in train_loader:
-            # Clear -&gt; forward -&gt; loss -&gt; backward -&gt; update.
-            optimizer.zero_grad(set_to_none=True)
-            logits = model(batch_x)
-            loss = criterion(logits, batch_y)
-            loss.backward()
-            optimizer.step()
+    for epoch in range(args.epochs):
+        total = 0.0
+        for images, labels in loader:
+            optimizer.zero_grad()
+            with mt.amp.autocast():
+                loss = criterion(model(images), labels)
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+            total += loss.item()
+        scheduler.step()
+        print(f&quot;epoch={epoch + 1} loss={total / len(loader):.6f}&quot;)
 
-        if epoch == 1 or epoch % 50 == 0:
-            model.eval()
-            with mt.no_grad():
-                valid_logits = model(valid_x)
-                valid_accuracy = accuracy(valid_logits, valid_y)
-            print(
-                f&quot;epoch={epoch:3d} loss={loss.item():.6f} &quot;
-                f&quot;valid_accuracy={valid_accuracy:.1%}&quot;
-            )
-
-    model.eval()
-    mt.save(model.state_dict(), CHECKPOINT)
-    print(f&quot;saved: {CHECKPOINT}&quot;)
+        mt.save_checkpoint(
+            {
+                &quot;epoch&quot;: epoch + 1,
+                &quot;classes&quot;: dataset.classes,
+                &quot;model&quot;: model.state_dict(),
+                &quot;optimizer&quot;: optimizer.state_dict(),
+                &quot;scheduler&quot;: scheduler.state_dict(),
+                &quot;scaler&quot;: scaler.state_dict(),
+                &quot;dataloader&quot;: loader.state_dict(),
+                &quot;rng_state&quot;: mt.get_rng_state(),
+            },
+            args.checkpoint,
+        )
+    loader.close()
 
 
 if __name__ == &quot;__main__&quot;:
@@ -159,64 +138,50 @@ if __name__ == &quot;__main__&quot;:
 </code></pre></div>
       </section>
       <section class="guide-explanation" id="training-notes">
-        <h2>훈련 코드에서 중요한 부분</h2><ol><li>TensorDataset(train_x, train_y)는 index 하나에 (입력, 라벨) tuple 하나를 대응시킵니다. 모든 Tensor의 sample 수와 CUDA 장치가 같아야 합니다.</li><li>DataLoader는 기본 TensorDataset 경로에서 batch index를 GPU에 한 번 전달해 입력과 라벨을 벡터화해서 가져옵니다. shuffle=True와 seed를 함께 쓰면 실행 간 순서를 재현할 수 있습니다.</li><li>CrossEntropyLoss에는 softmax를 거치지 않은 logits와 int64 class index를 전달합니다. optimizer.zero_grad()를 생략하면 이전 batch의 gradient가 누적됩니다.</li><li>loss.item()은 GPU 동기화를 일으키므로 예제처럼 로그를 표시할 때만 호출하는 편이 좋습니다. 검증에는 model.eval()과 mt.no_grad()를 함께 사용합니다.</li></ol>
+        <h2>훈련 코드에서 중요한 부분</h2><ol><li>ImageFolder root에는 class 이름별 하위 디렉터리를 만들고 그 안에 이미지를 둡니다. 클래스 이름의 사전순서가 int64 label이 됩니다.</li><li>기하 transform 뒤 ToArray와 Normalize를 적용합니다. num_workers는 CPU thread 수이며 CUDA 접근은 main thread만 수행합니다.</li><li>CrossEntropyLoss에는 softmax 전 logits와 int64 class index를 전달하고 GradScaler가 True를 반환한 update만 유효한 optimizer step입니다.</li><li>checkpoint에는 모델, optimizer, scheduler, scaler, DataLoader와 RNG 상태를 함께 저장합니다.</li></ol>
       </section>
       <section class="guide-section" id="inference">
         <div class="guide-section-heading"><div><span class="eyebrow">Inference</span><h2>저장된 모델로 추론</h2></div><p>훈련 코드가 만든 <code>classifier.npz</code>와 같은 폴더에서 실행합니다.</p></div>
-        <div class="code-example"><div class="code-example-bar"><span>infer_classifier.py</span><span>eval · no_grad · softmax</span></div><pre><code>&quot;&quot;&quot;Restore the trained classifier and predict new samples.&quot;&quot;&quot;
+        <div class="code-example"><div class="code-example-bar"><span>infer_classifier.py</span><span>eval · no_grad · softmax</span></div><pre><code>&quot;&quot;&quot;Run one ImageFolder batch through a saved AMP-trained classifier.&quot;&quot;&quot;
+
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
+from train_imagefolder_amp import ImageClassifier
 
 import mytorch as mt
-from mytorch.nn import functional as F
-
-DEVICE = &quot;cuda:0&quot;
-CHECKPOINT = &quot;classifier.npz&quot;
-CLASS_NAMES = (&quot;left&quot;, &quot;right&quot;, &quot;top&quot;)
-
-
-class Classifier(mt.nn.Module):
-    # Names and shapes must exactly match the training model.
-    def __init__(self, device: str = DEVICE) -&gt; None:
-        super().__init__()
-        self.network = mt.nn.Sequential(
-            mt.nn.Linear(2, 16, device=device),
-            mt.nn.ReLU(),
-            mt.nn.Linear(16, 3, device=device),
-        )
-
-    def forward(self, inputs: mt.Tensor) -&gt; mt.Tensor:
-        return self.network(inputs)
 
 
 def main() -&gt; None:
-    if not mt.cuda.is_available():
-        raise RuntimeError(&quot;MyTorch inference requires a CUDA GPU&quot;)
+    parser = argparse.ArgumentParser()
+    parser.add_argument(&quot;data&quot;, type=Path)
+    parser.add_argument(&quot;checkpoint&quot;, type=Path)
+    args = parser.parse_args()
 
-    model = Classifier(device=DEVICE)
-    state = mt.load(CHECKPOINT, device=DEVICE)
-    model.load_state_dict(state, strict=True)
+    state = mt.load_checkpoint(args.checkpoint)
+    classes = list(state[&quot;classes&quot;])
+    transform = mt.data.transforms.Compose(
+        [
+            mt.data.transforms.Resize((32, 32)),
+            mt.data.transforms.ToArray(),
+            mt.data.transforms.Normalize([0.5] * 3, [0.5] * 3),
+        ]
+    )
+    dataset = mt.data.ImageFolder(args.data, transform=transform)
+    loader = mt.data.DataLoader(dataset, batch_size=32, shuffle=False)
+    model = ImageClassifier(len(classes))
+    model.load_state_dict(state[&quot;model&quot;])
     model.eval()
 
-    new_points = mt.tensor(
-        [[-2.1, -1.0], [2.1, -1.0], [0.0, 2.1]],
-        dtype=mt.float32,
-        device=DEVICE,
-    )
-
-    with mt.no_grad():
-        logits = model(new_points)
-        probabilities = F.softmax(logits, dim=1)
-        class_indices = probabilities.argmax(dim=1)
-
-    # Copy only user-facing results back to CPU.
-    points_cpu = new_points.numpy()
-    probabilities_cpu = probabilities.numpy()
-    indices_cpu = class_indices.numpy()
-    for point, probs, class_index in zip(
-        points_cpu, probabilities_cpu, indices_cpu, strict=True
+    images, labels = next(iter(loader))
+    with mt.no_grad(), mt.amp.autocast():
+        predictions = model(images).argmax(dim=1)
+    for predicted, expected in zip(
+        predictions.numpy().tolist(), labels.numpy().tolist(), strict=True
     ):
-        label = CLASS_NAMES[int(class_index)]
-        confidence = float(probs[int(class_index)])
-        print(f&quot;point={point.tolist()} class={label} confidence={confidence:.2%}&quot;)
+        print(f&quot;prediction={classes[predicted]} target={classes[expected]}&quot;)
 
 
 if __name__ == &quot;__main__&quot;:
@@ -233,7 +198,7 @@ if __name__ == &quot;__main__&quot;:
     </main>
     <button class="back-to-top" type="button" aria-label="맨 위로">↑</button>
   </div>
-  <footer>MyTorch 0.9.0 · GPU-only educational framework · API는 현재 소스 시그니처에서 생성되었습니다.</footer>
+  <footer>MyTorch 0.12.0 · GPU-only educational framework · API는 현재 소스 시그니처에서 생성되었습니다.</footer>
   <script src="../assets/js/search-index.js"></script>
   <script src="../assets/js/docs.js"></script>
 </body>

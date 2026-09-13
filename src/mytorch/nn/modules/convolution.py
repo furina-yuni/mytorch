@@ -264,7 +264,9 @@ def convolution(
         name=f"conv{dims}d",
     )
     if bias is not None:
-        result = result + bias.reshape((1, bias.shape[0]) + (1,) * dims)
+        result = result + bias.to(dtype=result.dtype).reshape(
+            (1, bias.shape[0]) + (1,) * dims
+        )
     return result
 
 
@@ -387,7 +389,9 @@ def convolution_transpose(
         name=f"conv_transpose{dims}d",
     )
     if bias is not None:
-        result = result + bias.reshape((1, bias.shape[0]) + (1,) * dims)
+        result = result + bias.to(dtype=result.dtype).reshape(
+            (1, bias.shape[0]) + (1,) * dims
+        )
     return result
 
 

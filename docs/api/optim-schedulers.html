@@ -1,0 +1,842 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="epoch·batch·검증 metric에 따라 optimizer parameter group의 learning rate를 재현 가능하게 조절합니다.">
+  <meta name="generator" content="MyTorch docs builder">
+  <title>Learning Rate Scheduler · MyTorch 0.12.0</title>
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/docs.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">본문으로 건너뛰기</a>
+  <header class="topbar">
+    <button class="menu-button" type="button" aria-label="문서 메뉴 열기" aria-expanded="false">☰</button>
+    <a class="brand" href="../index.html"><span class="brand-mark">M</span><span>MyTorch</span><span class="version">v0.12.0</span></a>
+    <div class="search-box">
+      <label class="sr-only" for="site-search">API 검색</label>
+      <input id="site-search" type="search" placeholder="API 검색…  /" autocomplete="off">
+      <div id="search-results" class="search-results" hidden></div>
+    </div>
+    <button class="theme-button" type="button" aria-label="색상 테마 전환">◐</button>
+  </header>
+  <div class="site-layout">
+    <aside class="sidebar" aria-label="문서 모듈 탐색">
+      <a class="overview-link" href="../index.html">문서 홈</a>
+      <div class="nav-group"><span>Guides</span><a href="../guides/training-and-inference.html">처음부터 끝까지: 학습과 추론</a></div><div class="nav-group"><span>Core</span><a href="tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="autograd.html">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Training</span><a href="amp.html">FP16 자동 혼합정밀도</a></div><div class="nav-group"><span>Runtime</span><a href="cuda.html">CUDA 상태 확인</a></div><div class="nav-group"><span>Persistence</span><a href="serialization.html">모델과 학습 체크포인트</a></div><div class="nav-group"><span>Data</span><a href="data.html">Dataset과 DataLoader</a><a href="data-transforms.html">이미지 Transform</a></div><div class="nav-group"><span>Neural network</span><a href="nn-core.html">Module과 기본 계층</a><a href="nn-activations.html">활성화 함수 Module</a><a href="nn-losses.html">손실 함수 Module</a><a href="nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="nn-conv.html">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="nn-attention.html">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="nn-efficient.html">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="nn-functional-layers.html">함수형 계층 연산</a><a href="nn-functional-activations.html">함수형 활성화 연산</a><a href="nn-functional-losses.html">함수형 손실 연산</a></div><div class="nav-group"><span>Initialization</span><a href="nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="optim-schedulers.html" aria-current="page">Learning Rate Scheduler</a><a href="optim-optimizer.html">Optimizer 기반 클래스</a><a href="optim-sgd.html">SGD</a><a href="optim-adam.html">Adam 계열</a><a href="optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="optim-classical.html">ASGD와 Rprop</a><a href="optim-modern.html">Adafactor와 Lion</a></div>
+    </aside>
+    <main id="main" class="content">
+      <header class="page-header">
+        <div class="eyebrow">Optimization · mytorch.optim.lr_scheduler</div>
+        <h1>Learning Rate Scheduler</h1>
+        <p>epoch·batch·검증 metric에 따라 optimizer parameter group의 learning rate를 재현 가능하게 조절합니다.</p>
+        <div class="page-meta"><span>MyTorch 0.12.0</span><span>28개 API 항목</span><span>CUDA 전용</span></div>
+      </header>
+      <section class="concept-panel">
+        <div><h2>이 모듈을 사용할 때 알아둘 점</h2><ul><li>일반 scheduler는 optimizer 갱신 뒤 step()을 호출하며 ReduceLROnPlateau만 검증 metric을 step(metric)에 전달합니다.</li><li>LinearLR와 SequentialLR을 조합하면 warm-up 뒤 cosine 또는 exponential decay를 구성할 수 있습니다.</li><li>scheduler state_dict에는 현재 위치와 group별 LR이 포함되어 checkpoint 복원 후 다음 step을 정확히 이어갑니다.</li></ul></div>
+        <div><h2>기본 예제</h2><pre><code>optimizer = mt.optim.AdamW(model.parameters(), lr=3e-4)
+warmup = mt.optim.LinearLR(optimizer, start_factor=0.1, total_iters=5)
+cosine = mt.optim.CosineAnnealingLR(optimizer, T_max=95)
+scheduler = mt.optim.SequentialLR(
+    optimizer, [warmup, cosine], milestones=[5]
+)
+
+for epoch in range(100):
+    train_one_epoch()
+    scheduler.step()</code></pre></div>
+      </section>
+      <nav class="page-toc" aria-label="이 페이지의 API"><strong>페이지 목차</strong><div><a href="#api-mytorch-optim-cosineannealinglr"><code>CosineAnnealingLR</code></a><a href="#api-mytorch-optim-cosineannealinglr-get-lr"><code>CosineAnnealingLR.get_lr</code></a><a href="#api-mytorch-optim-cosineannealingwarmrestarts"><code>CosineAnnealingWarmRestarts</code></a><a href="#api-mytorch-optim-cosineannealingwarmrestarts-get-lr"><code>CosineAnnealingWarmRestarts.get_lr</code></a><a href="#api-mytorch-optim-exponentiallr"><code>ExponentialLR</code></a><a href="#api-mytorch-optim-exponentiallr-get-lr"><code>ExponentialLR.get_lr</code></a><a href="#api-mytorch-optim-lrscheduler"><code>LRScheduler</code></a><a href="#api-mytorch-optim-lrscheduler-get-lr"><code>LRScheduler.get_lr</code></a><a href="#api-mytorch-optim-lrscheduler-get-last-lr"><code>LRScheduler.get_last_lr</code></a><a href="#api-mytorch-optim-lrscheduler-step"><code>LRScheduler.step</code></a><a href="#api-mytorch-optim-lrscheduler-state-dict"><code>LRScheduler.state_dict</code></a><a href="#api-mytorch-optim-lrscheduler-load-state-dict"><code>LRScheduler.load_state_dict</code></a><a href="#api-mytorch-optim-linearlr"><code>LinearLR</code></a><a href="#api-mytorch-optim-linearlr-get-lr"><code>LinearLR.get_lr</code></a><a href="#api-mytorch-optim-multisteplr"><code>MultiStepLR</code></a><a href="#api-mytorch-optim-multisteplr-get-lr"><code>MultiStepLR.get_lr</code></a><a href="#api-mytorch-optim-onecyclelr"><code>OneCycleLR</code></a><a href="#api-mytorch-optim-onecyclelr-get-lr"><code>OneCycleLR.get_lr</code></a><a href="#api-mytorch-optim-onecyclelr-step"><code>OneCycleLR.step</code></a><a href="#api-mytorch-optim-reducelronplateau"><code>ReduceLROnPlateau</code></a><a href="#api-mytorch-optim-reducelronplateau-step"><code>ReduceLROnPlateau.step</code></a><a href="#api-mytorch-optim-reducelronplateau-get-last-lr"><code>ReduceLROnPlateau.get_last_lr</code></a><a href="#api-mytorch-optim-reducelronplateau-state-dict"><code>ReduceLROnPlateau.state_dict</code></a><a href="#api-mytorch-optim-reducelronplateau-load-state-dict"><code>ReduceLROnPlateau.load_state_dict</code></a><a href="#api-mytorch-optim-sequentiallr"><code>SequentialLR</code></a><a href="#api-mytorch-optim-sequentiallr-get-lr"><code>SequentialLR.get_lr</code></a><a href="#api-mytorch-optim-steplr"><code>StepLR</code></a><a href="#api-mytorch-optim-steplr-get-lr"><code>StepLR.get_lr</code></a></div></nav>
+      <div class="api-list"><article class="api-card searchable" id="api-mytorch-optim-cosineannealinglr" data-search="mytorch.optim.CosineAnnealingLR cosine 곡선으로 base learning rate에서 eta_min까지 변화시킵니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.optim.CosineAnnealingLR</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-cosineannealinglr" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">cosine 곡선으로 base learning rate에서 eta_min까지 변화시킵니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.CosineAnnealingLR(optimizer: &#x27;Optimizer&#x27;, T_max: &#x27;int&#x27;, eta_min: &#x27;float&#x27; = 0.0, last_epoch: &#x27;int&#x27; = -1) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>optimizer</code></td><td><code>&#x27;Optimizer&#x27;</code></td><td><code>필수</code></td><td>학습률을 조절하거나 gradient를 적용할 MyTorch Optimizer 객체입니다.</td></tr><tr><td><code>T_max</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>CosineAnnealingLR이 최솟값에 도달하는 step 수입니다.</td></tr><tr><td><code>eta_min</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.0</code></td><td>cosine schedule에서 허용할 최소 learning rate입니다.</td></tr><tr><td><code>last_epoch</code></td><td><code>&#x27;int&#x27;</code></td><td><code>-1</code></td><td>마지막으로 처리한 epoch 또는 step 번호입니다. 새 scheduler는 -1에서 시작합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 CosineAnnealingLR 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-cosineannealinglr-get-lr" data-search="mytorch.optim.CosineAnnealingLR.get_lr CosineAnnealingLR 객체의 get_lr 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.optim.CosineAnnealingLR.get_lr</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-cosineannealinglr-get-lr" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">CosineAnnealingLR 객체의 get_lr 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.CosineAnnealingLR.get_lr(self) -&gt; &#x27;list[float]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-cosineannealingwarmrestarts" data-search="mytorch.optim.CosineAnnealingWarmRestarts 주기적으로 base learning rate로 돌아가는 cosine schedule입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.optim.CosineAnnealingWarmRestarts</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-cosineannealingwarmrestarts" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">주기적으로 base learning rate로 돌아가는 cosine schedule입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.CosineAnnealingWarmRestarts(optimizer: &#x27;Optimizer&#x27;, T_0: &#x27;int&#x27;, T_mult: &#x27;int&#x27; = 1, eta_min: &#x27;float&#x27; = 0.0, last_epoch: &#x27;int&#x27; = -1) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>optimizer</code></td><td><code>&#x27;Optimizer&#x27;</code></td><td><code>필수</code></td><td>학습률을 조절하거나 gradient를 적용할 MyTorch Optimizer 객체입니다.</td></tr><tr><td><code>T_0</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>CosineAnnealingWarmRestarts의 첫 cosine 주기 길이입니다.</td></tr><tr><td><code>T_mult</code></td><td><code>&#x27;int&#x27;</code></td><td><code>1</code></td><td>warm restart 이후 주기 길이에 곱하는 정수입니다.</td></tr><tr><td><code>eta_min</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.0</code></td><td>cosine schedule에서 허용할 최소 learning rate입니다.</td></tr><tr><td><code>last_epoch</code></td><td><code>&#x27;int&#x27;</code></td><td><code>-1</code></td><td>마지막으로 처리한 epoch 또는 step 번호입니다. 새 scheduler는 -1에서 시작합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 CosineAnnealingWarmRestarts 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-cosineannealingwarmrestarts-get-lr" data-search="mytorch.optim.CosineAnnealingWarmRestarts.get_lr CosineAnnealingWarmRestarts 객체의 get_lr 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.optim.CosineAnnealingWarmRestarts.get_lr</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-cosineannealingwarmrestarts-get-lr" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">CosineAnnealingWarmRestarts 객체의 get_lr 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.CosineAnnealingWarmRestarts.get_lr(self) -&gt; &#x27;list[float]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-exponentiallr" data-search="mytorch.optim.ExponentialLR 매 step마다 지수적으로 감소하는 learning rate를 계산합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.optim.ExponentialLR</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-exponentiallr" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">매 step마다 지수적으로 감소하는 learning rate를 계산합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.ExponentialLR(optimizer: &#x27;Optimizer&#x27;, gamma: &#x27;float&#x27;, last_epoch: &#x27;int&#x27; = -1) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>optimizer</code></td><td><code>&#x27;Optimizer&#x27;</code></td><td><code>필수</code></td><td>학습률을 조절하거나 gradient를 적용할 MyTorch Optimizer 객체입니다.</td></tr><tr><td><code>gamma</code></td><td><code>&#x27;float&#x27;</code></td><td><code>필수</code></td><td>learning rate에 곱할 지수 감쇠 계수입니다.</td></tr><tr><td><code>last_epoch</code></td><td><code>&#x27;int&#x27;</code></td><td><code>-1</code></td><td>마지막으로 처리한 epoch 또는 step 번호입니다. 새 scheduler는 -1에서 시작합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 ExponentialLR 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-exponentiallr-get-lr" data-search="mytorch.optim.ExponentialLR.get_lr ExponentialLR 객체의 get_lr 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.optim.ExponentialLR.get_lr</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-exponentiallr-get-lr" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">ExponentialLR 객체의 get_lr 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.ExponentialLR.get_lr(self) -&gt; &#x27;list[float]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-lrscheduler" data-search="mytorch.optim.LRScheduler Optimizer parameter group의 learning rate와 checkpoint 위치를 관리합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.optim.LRScheduler</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-lrscheduler" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Optimizer parameter group의 learning rate와 checkpoint 위치를 관리합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.LRScheduler(optimizer: &#x27;Optimizer&#x27;, last_epoch: &#x27;int&#x27; = -1) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>optimizer</code></td><td><code>&#x27;Optimizer&#x27;</code></td><td><code>필수</code></td><td>학습률을 조절하거나 gradient를 적용할 MyTorch Optimizer 객체입니다.</td></tr><tr><td><code>last_epoch</code></td><td><code>&#x27;int&#x27;</code></td><td><code>-1</code></td><td>마지막으로 처리한 epoch 또는 step 번호입니다. 새 scheduler는 -1에서 시작합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 LRScheduler 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-lrscheduler-get-lr" data-search="mytorch.optim.LRScheduler.get_lr LRScheduler 객체의 get_lr 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.optim.LRScheduler.get_lr</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-lrscheduler-get-lr" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">LRScheduler 객체의 get_lr 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.LRScheduler.get_lr(self) -&gt; &#x27;list[float]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-lrscheduler-get-last-lr" data-search="mytorch.optim.LRScheduler.get_last_lr LRScheduler 객체의 get_last_lr 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.optim.LRScheduler.get_last_lr</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-lrscheduler-get-last-lr" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">LRScheduler 객체의 get_last_lr 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.LRScheduler.get_last_lr(self) -&gt; &#x27;list[float]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-lrscheduler-step" data-search="mytorch.optim.LRScheduler.step LRScheduler 객체의 step 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.optim.LRScheduler.step</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-lrscheduler-step" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">LRScheduler 객체의 step 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.LRScheduler.step(self, epoch: &#x27;int | None&#x27; = None) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>epoch</code></td><td><code>&#x27;int | None&#x27;</code></td><td><code>None</code></td><td>scheduler가 직접 이동하거나 체크포인트가 기록할 epoch 번호입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>None. 객체의 gradient, 난수 상태, 파일 또는 Parameter를 변경합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-lrscheduler-state-dict" data-search="mytorch.optim.LRScheduler.state_dict LRScheduler 객체의 state_dict 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.optim.LRScheduler.state_dict</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-lrscheduler-state-dict" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">LRScheduler 객체의 state_dict 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.LRScheduler.state_dict(self) -&gt; &#x27;dict[str, Any]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>이름과 GPU Tensor를 연결한 순서 보존 mapping입니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-lrscheduler-load-state-dict" data-search="mytorch.optim.LRScheduler.load_state_dict LRScheduler 객체의 load_state_dict 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.optim.LRScheduler.load_state_dict</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-lrscheduler-load-state-dict" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">LRScheduler 객체의 load_state_dict 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.LRScheduler.load_state_dict(self, state_dict: &#x27;Mapping[str, Any]&#x27;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>state_dict</code></td><td><code>&#x27;Mapping[str, Any]&#x27;</code></td><td><code>필수</code></td><td>모델, optimizer 또는 DataLoader가 state_dict()로 내보낸 검증 가능한 상태 mapping입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>None. 객체의 gradient, 난수 상태, 파일 또는 Parameter를 변경합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-linearlr" data-search="mytorch.optim.LinearLR 정해진 step 동안 시작 factor에서 종료 factor까지 선형 보간합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.optim.LinearLR</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-linearlr" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">정해진 step 동안 시작 factor에서 종료 factor까지 선형 보간합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.LinearLR(optimizer: &#x27;Optimizer&#x27;, start_factor: &#x27;float&#x27; = 0.3333333333333333, end_factor: &#x27;float&#x27; = 1.0, total_iters: &#x27;int&#x27; = 5, last_epoch: &#x27;int&#x27; = -1) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>optimizer</code></td><td><code>&#x27;Optimizer&#x27;</code></td><td><code>필수</code></td><td>학습률을 조절하거나 gradient를 적용할 MyTorch Optimizer 객체입니다.</td></tr><tr><td><code>start_factor</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.3333333333333333</code></td><td>LinearLR 시작 시 base learning rate에 곱할 비율입니다.</td></tr><tr><td><code>end_factor</code></td><td><code>&#x27;float&#x27;</code></td><td><code>1.0</code></td><td>LinearLR 종료 시 base learning rate에 곱할 비율입니다.</td></tr><tr><td><code>total_iters</code></td><td><code>&#x27;int&#x27;</code></td><td><code>5</code></td><td>선형 변화가 완료될 scheduler step 수입니다.</td></tr><tr><td><code>last_epoch</code></td><td><code>&#x27;int&#x27;</code></td><td><code>-1</code></td><td>마지막으로 처리한 epoch 또는 step 번호입니다. 새 scheduler는 -1에서 시작합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 LinearLR 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-linearlr-get-lr" data-search="mytorch.optim.LinearLR.get_lr LinearLR 객체의 get_lr 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.optim.LinearLR.get_lr</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-linearlr-get-lr" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">LinearLR 객체의 get_lr 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.LinearLR.get_lr(self) -&gt; &#x27;list[float]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-multisteplr" data-search="mytorch.optim.MultiStepLR 지정 milestone을 지날 때마다 learning rate에 gamma를 곱합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.optim.MultiStepLR</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-multisteplr" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">지정 milestone을 지날 때마다 learning rate에 gamma를 곱합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.MultiStepLR(optimizer: &#x27;Optimizer&#x27;, milestones: &#x27;Sequence[int]&#x27;, gamma: &#x27;float&#x27; = 0.1, last_epoch: &#x27;int&#x27; = -1) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>optimizer</code></td><td><code>&#x27;Optimizer&#x27;</code></td><td><code>필수</code></td><td>학습률을 조절하거나 gradient를 적용할 MyTorch Optimizer 객체입니다.</td></tr><tr><td><code>milestones</code></td><td><code>&#x27;Sequence[int]&#x27;</code></td><td><code>필수</code></td><td>learning-rate 구간을 전환할 오름차순 epoch 번호입니다.</td></tr><tr><td><code>gamma</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.1</code></td><td>learning rate에 곱할 지수 감쇠 계수입니다.</td></tr><tr><td><code>last_epoch</code></td><td><code>&#x27;int&#x27;</code></td><td><code>-1</code></td><td>마지막으로 처리한 epoch 또는 step 번호입니다. 새 scheduler는 -1에서 시작합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 MultiStepLR 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-multisteplr-get-lr" data-search="mytorch.optim.MultiStepLR.get_lr MultiStepLR 객체의 get_lr 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.optim.MultiStepLR.get_lr</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-multisteplr-get-lr" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">MultiStepLR 객체의 get_lr 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.MultiStepLR.get_lr(self) -&gt; &#x27;list[float]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-onecyclelr" data-search="mytorch.optim.OneCycleLR batch 단위 learning rate 상승과 하강을 한 cycle로 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.optim.OneCycleLR</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-onecyclelr" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">batch 단위 learning rate 상승과 하강을 한 cycle로 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.OneCycleLR(optimizer: &#x27;Optimizer&#x27;, max_lr: &#x27;float | Sequence[float]&#x27;, total_steps: &#x27;int | None&#x27; = None, *, epochs: &#x27;int | None&#x27; = None, steps_per_epoch: &#x27;int | None&#x27; = None, pct_start: &#x27;float&#x27; = 0.3, anneal_strategy: &#x27;str&#x27; = &#x27;cos&#x27;, cycle_momentum: &#x27;bool&#x27; = True, base_momentum: &#x27;float | Sequence[float]&#x27; = 0.85, max_momentum: &#x27;float | Sequence[float]&#x27; = 0.95, div_factor: &#x27;float&#x27; = 25.0, final_div_factor: &#x27;float&#x27; = 10000.0, three_phase: &#x27;bool&#x27; = False, last_epoch: &#x27;int&#x27; = -1) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>optimizer</code></td><td><code>&#x27;Optimizer&#x27;</code></td><td><code>필수</code></td><td>학습률을 조절하거나 gradient를 적용할 MyTorch Optimizer 객체입니다.</td></tr><tr><td><code>max_lr</code></td><td><code>&#x27;float | Sequence[float]&#x27;</code></td><td><code>필수</code></td><td>OneCycleLR cycle의 parameter group별 최대 learning rate입니다.</td></tr><tr><td><code>total_steps</code></td><td><code>&#x27;int | None&#x27;</code></td><td><code>None</code></td><td>OneCycleLR이 수행할 전체 batch step 수입니다.</td></tr><tr><td><code>epochs</code></td><td><code>&#x27;int | None&#x27;</code></td><td><code>None</code></td><td>학습할 전체 epoch 수이며 steps_per_epoch와 함께 total_steps를 계산합니다.</td></tr><tr><td><code>steps_per_epoch</code></td><td><code>&#x27;int | None&#x27;</code></td><td><code>None</code></td><td>한 epoch의 optimizer update 수입니다.</td></tr><tr><td><code>pct_start</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.3</code></td><td>OneCycleLR 전체 중 learning rate가 상승하는 구간 비율입니다.</td></tr><tr><td><code>anneal_strategy</code></td><td><code>&#x27;str&#x27;</code></td><td><code>&#x27;cos&#x27;</code></td><td>cycle 값을 변화시킬 &#x27;cos&#x27; 또는 &#x27;linear&#x27; 보간 방식입니다.</td></tr><tr><td><code>cycle_momentum</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 learning rate와 반대 방향으로 momentum도 조절합니다.</td></tr><tr><td><code>base_momentum</code></td><td><code>&#x27;float | Sequence[float]&#x27;</code></td><td><code>0.85</code></td><td>OneCycleLR의 최소 momentum입니다.</td></tr><tr><td><code>max_momentum</code></td><td><code>&#x27;float | Sequence[float]&#x27;</code></td><td><code>0.95</code></td><td>OneCycleLR의 최대 momentum입니다.</td></tr><tr><td><code>div_factor</code></td><td><code>&#x27;float&#x27;</code></td><td><code>25.0</code></td><td>max_lr를 초기 learning rate로 나누는 비율입니다.</td></tr><tr><td><code>final_div_factor</code></td><td><code>&#x27;float&#x27;</code></td><td><code>10000.0</code></td><td>초기 learning rate를 최종 learning rate로 나누는 비율입니다.</td></tr><tr><td><code>three_phase</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>False</code></td><td>True이면 상승, 대칭 하강, 최종 하강의 세 구간을 사용합니다.</td></tr><tr><td><code>last_epoch</code></td><td><code>&#x27;int&#x27;</code></td><td><code>-1</code></td><td>마지막으로 처리한 epoch 또는 step 번호입니다. 새 scheduler는 -1에서 시작합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 OneCycleLR 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-onecyclelr-get-lr" data-search="mytorch.optim.OneCycleLR.get_lr OneCycleLR 객체의 get_lr 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.optim.OneCycleLR.get_lr</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-onecyclelr-get-lr" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">OneCycleLR 객체의 get_lr 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.OneCycleLR.get_lr(self) -&gt; &#x27;list[float]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-onecyclelr-step" data-search="mytorch.optim.OneCycleLR.step OneCycleLR 객체의 step 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.optim.OneCycleLR.step</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-onecyclelr-step" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">OneCycleLR 객체의 step 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.OneCycleLR.step(self, epoch: &#x27;int | None&#x27; = None) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>epoch</code></td><td><code>&#x27;int | None&#x27;</code></td><td><code>None</code></td><td>scheduler가 직접 이동하거나 체크포인트가 기록할 epoch 번호입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>None. 객체의 gradient, 난수 상태, 파일 또는 Parameter를 변경합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-reducelronplateau" data-search="mytorch.optim.ReduceLROnPlateau 검증 metric이 개선되지 않으면 learning rate를 감소시킵니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.optim.ReduceLROnPlateau</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-reducelronplateau" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">검증 metric이 개선되지 않으면 learning rate를 감소시킵니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.ReduceLROnPlateau(optimizer: &#x27;Optimizer&#x27;, mode: &#x27;str&#x27; = &#x27;min&#x27;, factor: &#x27;float&#x27; = 0.1, patience: &#x27;int&#x27; = 10, threshold: &#x27;float&#x27; = 0.0001, threshold_mode: &#x27;str&#x27; = &#x27;rel&#x27;, cooldown: &#x27;int&#x27; = 0, min_lr: &#x27;float | Sequence[float]&#x27; = 0.0, eps: &#x27;float&#x27; = 1e-08) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>optimizer</code></td><td><code>&#x27;Optimizer&#x27;</code></td><td><code>필수</code></td><td>학습률을 조절하거나 gradient를 적용할 MyTorch Optimizer 객체입니다.</td></tr><tr><td><code>mode</code></td><td><code>&#x27;str&#x27;</code></td><td><code>&#x27;min&#x27;</code></td><td>계층이 지원하는 계산 모드입니다. 허용 문자열은 해당 API 설명을 따릅니다.</td></tr><tr><td><code>factor</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.1</code></td><td>learning rate 또는 값을 감소·증가시킬 배율입니다.</td></tr><tr><td><code>patience</code></td><td><code>&#x27;int&#x27;</code></td><td><code>10</code></td><td>metric 개선 없이 기다릴 epoch 수입니다.</td></tr><tr><td><code>threshold</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.0001</code></td><td>metric 개선으로 인정할 최소 변화량입니다.</td></tr><tr><td><code>threshold_mode</code></td><td><code>&#x27;str&#x27;</code></td><td><code>&#x27;rel&#x27;</code></td><td>threshold를 상대값 &#x27;rel&#x27; 또는 절댓값 &#x27;abs&#x27;로 해석합니다.</td></tr><tr><td><code>cooldown</code></td><td><code>&#x27;int&#x27;</code></td><td><code>0</code></td><td>learning rate 감소 후 bad epoch를 세지 않고 기다릴 epoch 수입니다.</td></tr><tr><td><code>min_lr</code></td><td><code>&#x27;float | Sequence[float]&#x27;</code></td><td><code>0.0</code></td><td>parameter group별 최소 learning rate입니다.</td></tr><tr><td><code>eps</code></td><td><code>&#x27;float&#x27;</code></td><td><code>1e-08</code></td><td>0으로 나누거나 매우 작은 값에서 불안정해지는 것을 막는 양의 상수입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 ReduceLROnPlateau 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-reducelronplateau-step" data-search="mytorch.optim.ReduceLROnPlateau.step ReduceLROnPlateau 객체의 step 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.optim.ReduceLROnPlateau.step</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-reducelronplateau-step" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">ReduceLROnPlateau 객체의 step 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.ReduceLROnPlateau.step(self, metrics: &#x27;float&#x27;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>metrics</code></td><td><code>&#x27;float&#x27;</code></td><td><code>필수</code></td><td>ReduceLROnPlateau가 개선 여부를 판단할 검증 metric입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>None. 객체의 gradient, 난수 상태, 파일 또는 Parameter를 변경합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-reducelronplateau-get-last-lr" data-search="mytorch.optim.ReduceLROnPlateau.get_last_lr ReduceLROnPlateau 객체의 get_last_lr 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.optim.ReduceLROnPlateau.get_last_lr</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-reducelronplateau-get-last-lr" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">ReduceLROnPlateau 객체의 get_last_lr 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.ReduceLROnPlateau.get_last_lr(self) -&gt; &#x27;list[float]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-reducelronplateau-state-dict" data-search="mytorch.optim.ReduceLROnPlateau.state_dict ReduceLROnPlateau 객체의 state_dict 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.optim.ReduceLROnPlateau.state_dict</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-reducelronplateau-state-dict" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">ReduceLROnPlateau 객체의 state_dict 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.ReduceLROnPlateau.state_dict(self) -&gt; &#x27;dict[str, Any]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>이름과 GPU Tensor를 연결한 순서 보존 mapping입니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-reducelronplateau-load-state-dict" data-search="mytorch.optim.ReduceLROnPlateau.load_state_dict ReduceLROnPlateau 객체의 load_state_dict 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.optim.ReduceLROnPlateau.load_state_dict</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-reducelronplateau-load-state-dict" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">ReduceLROnPlateau 객체의 load_state_dict 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.ReduceLROnPlateau.load_state_dict(self, state_dict: &#x27;Mapping[str, Any]&#x27;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>state_dict</code></td><td><code>&#x27;Mapping[str, Any]&#x27;</code></td><td><code>필수</code></td><td>모델, optimizer 또는 DataLoader가 state_dict()로 내보낸 검증 가능한 상태 mapping입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>None. 객체의 gradient, 난수 상태, 파일 또는 Parameter를 변경합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-sequentiallr" data-search="mytorch.optim.SequentialLR 여러 scheduler를 milestone 경계에서 순서대로 전환합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.optim.SequentialLR</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-sequentiallr" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">여러 scheduler를 milestone 경계에서 순서대로 전환합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.SequentialLR(optimizer: &#x27;Optimizer&#x27;, schedulers: &#x27;Sequence[LRScheduler]&#x27;, milestones: &#x27;Sequence[int]&#x27;, last_epoch: &#x27;int&#x27; = -1) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>optimizer</code></td><td><code>&#x27;Optimizer&#x27;</code></td><td><code>필수</code></td><td>학습률을 조절하거나 gradient를 적용할 MyTorch Optimizer 객체입니다.</td></tr><tr><td><code>schedulers</code></td><td><code>&#x27;Sequence[LRScheduler]&#x27;</code></td><td><code>필수</code></td><td>SequentialLR이 순서대로 사용할 scheduler 목록입니다.</td></tr><tr><td><code>milestones</code></td><td><code>&#x27;Sequence[int]&#x27;</code></td><td><code>필수</code></td><td>learning-rate 구간을 전환할 오름차순 epoch 번호입니다.</td></tr><tr><td><code>last_epoch</code></td><td><code>&#x27;int&#x27;</code></td><td><code>-1</code></td><td>마지막으로 처리한 epoch 또는 step 번호입니다. 새 scheduler는 -1에서 시작합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 SequentialLR 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-sequentiallr-get-lr" data-search="mytorch.optim.SequentialLR.get_lr SequentialLR 객체의 get_lr 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.optim.SequentialLR.get_lr</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-sequentiallr-get-lr" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">SequentialLR 객체의 get_lr 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.SequentialLR.get_lr(self) -&gt; &#x27;list[float]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-steplr" data-search="mytorch.optim.StepLR 고정 epoch 간격마다 learning rate에 gamma를 곱합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.optim.StepLR</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-steplr" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">고정 epoch 간격마다 learning rate에 gamma를 곱합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.StepLR(optimizer: &#x27;Optimizer&#x27;, step_size: &#x27;int&#x27;, gamma: &#x27;float&#x27; = 0.1, last_epoch: &#x27;int&#x27; = -1) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>optimizer</code></td><td><code>&#x27;Optimizer&#x27;</code></td><td><code>필수</code></td><td>학습률을 조절하거나 gradient를 적용할 MyTorch Optimizer 객체입니다.</td></tr><tr><td><code>step_size</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>StepLR이 learning rate를 감소시키는 epoch 간격입니다.</td></tr><tr><td><code>gamma</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.1</code></td><td>learning rate에 곱할 지수 감쇠 계수입니다.</td></tr><tr><td><code>last_epoch</code></td><td><code>&#x27;int&#x27;</code></td><td><code>-1</code></td><td>마지막으로 처리한 epoch 또는 step 번호입니다. 새 scheduler는 -1에서 시작합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 StepLR 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-optim-steplr-get-lr" data-search="mytorch.optim.StepLR.get_lr StepLR 객체의 get_lr 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.optim.StepLR.get_lr</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-optim-steplr-get-lr" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">StepLR 객체의 get_lr 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.optim.StepLR.get_lr(self) -&gt; &#x27;list[float]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>optimizer state와 모든 update는 Parameter가 있는 CUDA 장치에서 계산됩니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article></div>
+      <nav class="page-end"><a href="../index.html">← 전체 모듈 목록으로</a></nav>
+    </main>
+    <button class="back-to-top" type="button" aria-label="맨 위로">↑</button>
+  </div>
+  <footer>MyTorch 0.12.0 · GPU-only educational framework · API는 현재 소스 시그니처에서 생성되었습니다.</footer>
+  <script src="../assets/js/search-index.js"></script>
+  <script src="../assets/js/docs.js"></script>
+</body>
+</html>

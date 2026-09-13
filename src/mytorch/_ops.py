@@ -72,6 +72,9 @@ def apply(
     tensor_type = _tensor_type()
     device = _device_for(inputs)
     arrays = [_unwrap(value, device) for value in inputs]
+    from .amp.autocast_mode import _cast_arrays
+
+    arrays = _cast_arrays(arrays, name or getattr(operation, "__name__", None))
     with cp.cuda.Device(device):
         result = operation(*arrays, **kwargs)
         if not isinstance(result, cp.ndarray):

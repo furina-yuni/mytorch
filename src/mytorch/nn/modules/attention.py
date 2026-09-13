@@ -45,6 +45,8 @@ def scaled_dot_product_attention(
     def forward(*arrays):
         q, k, v = arrays[:3]
         scores = cp.matmul(q, cp.swapaxes(k, -1, -2)) * factor
+        if scores.dtype == cp.float16:
+            scores = scores.astype(cp.float32)
         allowed = None
         if is_causal:
             allowed = cp.arange(q.shape[-2])[:, None] >= cp.arange(k.shape[-2])[None, :]
@@ -74,6 +76,7 @@ def scaled_dot_product_attention(
             )
         else:
             used_weights = weights
+        used_weights = used_weights.astype(v.dtype, copy=False)
         state["used_weights"] = used_weights
         state["allowed"] = allowed
         return cp.matmul(used_weights, v)

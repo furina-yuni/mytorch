@@ -27,7 +27,7 @@ def linear(input: Tensor, weight: Tensor, bias: Tensor | None = None) -> Tensor:
                 f"linear bias must have shape {(weight.shape[0],)}, "
                 f"got {getattr(bias, 'shape', None)}"
             )
-        result = result + bias
+        result = result + bias.to(dtype=result.dtype)
     return result
 
 
@@ -71,7 +71,7 @@ def bilinear(
     if bias is not None:
         if bias.shape != (weight.shape[0],):
             raise ValueError("bilinear bias has the wrong shape")
-        result = result + bias
+        result = result + bias.to(dtype=result.dtype)
     return result
 
 

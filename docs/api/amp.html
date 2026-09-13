@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="FP32 master Parameter를 유지하면서 행렬곱과 합성곱을 FP16으로 실행하고 동적 loss scaling으로 overflow를 제어합니다.">
+  <meta name="generator" content="MyTorch docs builder">
+  <title>FP16 자동 혼합정밀도 · MyTorch 0.12.0</title>
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/docs.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">본문으로 건너뛰기</a>
+  <header class="topbar">
+    <button class="menu-button" type="button" aria-label="문서 메뉴 열기" aria-expanded="false">☰</button>
+    <a class="brand" href="../index.html"><span class="brand-mark">M</span><span>MyTorch</span><span class="version">v0.12.0</span></a>
+    <div class="search-box">
+      <label class="sr-only" for="site-search">API 검색</label>
+      <input id="site-search" type="search" placeholder="API 검색…  /" autocomplete="off">
+      <div id="search-results" class="search-results" hidden></div>
+    </div>
+    <button class="theme-button" type="button" aria-label="색상 테마 전환">◐</button>
+  </header>
+  <div class="site-layout">
+    <aside class="sidebar" aria-label="문서 모듈 탐색">
+      <a class="overview-link" href="../index.html">문서 홈</a>
+      <div class="nav-group"><span>Guides</span><a href="../guides/training-and-inference.html">처음부터 끝까지: 학습과 추론</a></div><div class="nav-group"><span>Core</span><a href="tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="autograd.html">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Training</span><a href="amp.html" aria-current="page">FP16 자동 혼합정밀도</a></div><div class="nav-group"><span>Runtime</span><a href="cuda.html">CUDA 상태 확인</a></div><div class="nav-group"><span>Persistence</span><a href="serialization.html">모델과 학습 체크포인트</a></div><div class="nav-group"><span>Data</span><a href="data.html">Dataset과 DataLoader</a><a href="data-transforms.html">이미지 Transform</a></div><div class="nav-group"><span>Neural network</span><a href="nn-core.html">Module과 기본 계층</a><a href="nn-activations.html">활성화 함수 Module</a><a href="nn-losses.html">손실 함수 Module</a><a href="nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="nn-conv.html">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="nn-attention.html">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="nn-efficient.html">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="nn-functional-layers.html">함수형 계층 연산</a><a href="nn-functional-activations.html">함수형 활성화 연산</a><a href="nn-functional-losses.html">함수형 손실 연산</a></div><div class="nav-group"><span>Initialization</span><a href="nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="optim-schedulers.html">Learning Rate Scheduler</a><a href="optim-optimizer.html">Optimizer 기반 클래스</a><a href="optim-sgd.html">SGD</a><a href="optim-adam.html">Adam 계열</a><a href="optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="optim-classical.html">ASGD와 Rprop</a><a href="optim-modern.html">Adafactor와 Lion</a></div>
+    </aside>
+    <main id="main" class="content">
+      <header class="page-header">
+        <div class="eyebrow">Training · mytorch.amp</div>
+        <h1>FP16 자동 혼합정밀도</h1>
+        <p>FP32 master Parameter를 유지하면서 행렬곱과 합성곱을 FP16으로 실행하고 동적 loss scaling으로 overflow를 제어합니다.</p>
+        <div class="page-meta"><span>MyTorch 0.12.0</span><span>11개 API 항목</span><span>CUDA 전용</span></div>
+      </header>
+      <section class="concept-panel">
+        <div><h2>이 모듈을 사용할 때 알아둘 점</h2><ul><li>autocast는 Linear·행렬곱·합성곱을 FP16으로 실행하지만 softmax, loss, normalization과 주요 reduction은 FP32로 유지합니다.</li><li>GradScaler는 backward 전에 loss를 확대하고 optimizer 직전에 gradient를 복원합니다. NaN이나 Inf가 있으면 해당 update를 안전하게 건너뜁니다.</li><li>step()이 True를 반환했을 때만 batch 단위 scheduler를 진행해야 overflow 이후 learning-rate schedule이 어긋나지 않습니다.</li></ul></div>
+        <div><h2>기본 예제</h2><pre><code>scaler = mt.amp.GradScaler()
+
+optimizer.zero_grad()
+with mt.amp.autocast():
+    loss = criterion(model(inputs), targets)
+scaler.scale(loss).backward()
+updated = scaler.step(optimizer)
+scaler.update()
+if updated:
+    scheduler.step()</code></pre></div>
+      </section>
+      <nav class="page-toc" aria-label="이 페이지의 API"><strong>페이지 목차</strong><div><a href="#api-mytorch-amp-gradscaler"><code>GradScaler</code></a><a href="#api-mytorch-amp-gradscaler-get-scale"><code>GradScaler.get_scale</code></a><a href="#api-mytorch-amp-gradscaler-scale"><code>GradScaler.scale</code></a><a href="#api-mytorch-amp-gradscaler-unscale"><code>GradScaler.unscale_</code></a><a href="#api-mytorch-amp-gradscaler-step"><code>GradScaler.step</code></a><a href="#api-mytorch-amp-gradscaler-update"><code>GradScaler.update</code></a><a href="#api-mytorch-amp-gradscaler-state-dict"><code>GradScaler.state_dict</code></a><a href="#api-mytorch-amp-gradscaler-load-state-dict"><code>GradScaler.load_state_dict</code></a><a href="#api-mytorch-amp-autocast"><code>autocast</code></a><a href="#api-mytorch-amp-get-autocast-dtype"><code>get_autocast_dtype</code></a><a href="#api-mytorch-amp-is-autocast-enabled"><code>is_autocast_enabled</code></a></div></nav>
+      <div class="api-list"><article class="api-card searchable" id="api-mytorch-amp-gradscaler" data-search="mytorch.amp.GradScaler loss scale을 동적으로 조절하고 비정상 gradient의 optimizer step을 건너뜁니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.amp.GradScaler</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-amp-gradscaler" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">loss scale을 동적으로 조절하고 비정상 gradient의 optimizer step을 건너뜁니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.amp.GradScaler(init_scale: &#x27;float&#x27; = 65536.0, growth_factor: &#x27;float&#x27; = 2.0, backoff_factor: &#x27;float&#x27; = 0.5, growth_interval: &#x27;int&#x27; = 2000, enabled: &#x27;bool&#x27; = True) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>init_scale</code></td><td><code>&#x27;float&#x27;</code></td><td><code>65536.0</code></td><td>GradScaler가 처음 loss에 곱할 배율입니다.</td></tr><tr><td><code>growth_factor</code></td><td><code>&#x27;float&#x27;</code></td><td><code>2.0</code></td><td>안정적인 step이 누적됐을 때 scale에 곱할 값입니다.</td></tr><tr><td><code>backoff_factor</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.5</code></td><td>overflow 발생 시 scale에 곱할 1 미만의 값입니다.</td></tr><tr><td><code>growth_interval</code></td><td><code>&#x27;int&#x27;</code></td><td><code>2000</code></td><td>scale을 증가시키기 전에 필요한 연속 정상 step 수입니다.</td></tr><tr><td><code>enabled</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 현재 문맥에서 계산 그래프 기록을 활성화하고 False이면 비활성화합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 GradScaler 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-amp-gradscaler-get-scale" data-search="mytorch.amp.GradScaler.get_scale GradScaler 객체의 get_scale 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.amp.GradScaler.get_scale</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-amp-gradscaler-get-scale" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GradScaler 객체의 get_scale 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.amp.GradScaler.get_scale(self) -&gt; &#x27;float&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-amp-gradscaler-scale" data-search="mytorch.amp.GradScaler.scale GradScaler 객체의 scale 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.amp.GradScaler.scale</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-amp-gradscaler-scale" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GradScaler 객체의 scale 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.amp.GradScaler.scale(self, output: &#x27;Tensor&#x27;) -&gt; &#x27;Tensor&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>output</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>역전파를 시작할 결과 Tensor입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-amp-gradscaler-unscale" data-search="mytorch.amp.GradScaler.unscale_ GradScaler 객체의 unscale_ 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.amp.GradScaler.unscale_</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-amp-gradscaler-unscale" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GradScaler 객체의 unscale_ 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.amp.GradScaler.unscale_(self, optimizer: &#x27;Optimizer&#x27;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>optimizer</code></td><td><code>&#x27;Optimizer&#x27;</code></td><td><code>필수</code></td><td>학습률을 조절하거나 gradient를 적용할 MyTorch Optimizer 객체입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-amp-gradscaler-step" data-search="mytorch.amp.GradScaler.step GradScaler 객체의 step 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.amp.GradScaler.step</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-amp-gradscaler-step" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GradScaler 객체의 step 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.amp.GradScaler.step(self, optimizer: &#x27;Optimizer&#x27;) -&gt; &#x27;bool&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>optimizer</code></td><td><code>&#x27;Optimizer&#x27;</code></td><td><code>필수</code></td><td>학습률을 조절하거나 gradient를 적용할 MyTorch Optimizer 객체입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>None. 객체의 gradient, 난수 상태, 파일 또는 Parameter를 변경합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-amp-gradscaler-update" data-search="mytorch.amp.GradScaler.update GradScaler 객체의 update 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.amp.GradScaler.update</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-amp-gradscaler-update" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GradScaler 객체의 update 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.amp.GradScaler.update(self, new_scale: &#x27;float | None&#x27; = None) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>new_scale</code></td><td><code>&#x27;float | None&#x27;</code></td><td><code>None</code></td><td>동적 계산 대신 명시적으로 설정할 새 loss scale입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-amp-gradscaler-state-dict" data-search="mytorch.amp.GradScaler.state_dict GradScaler 객체의 state_dict 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.amp.GradScaler.state_dict</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-amp-gradscaler-state-dict" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GradScaler 객체의 state_dict 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.amp.GradScaler.state_dict(self) -&gt; &#x27;dict[str, Any]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>이름과 GPU Tensor를 연결한 순서 보존 mapping입니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-amp-gradscaler-load-state-dict" data-search="mytorch.amp.GradScaler.load_state_dict GradScaler 객체의 load_state_dict 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.amp.GradScaler.load_state_dict</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-amp-gradscaler-load-state-dict" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">GradScaler 객체의 load_state_dict 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.amp.GradScaler.load_state_dict(self, state_dict: &#x27;Mapping[str, Any]&#x27;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>state_dict</code></td><td><code>&#x27;Mapping[str, Any]&#x27;</code></td><td><code>필수</code></td><td>모델, optimizer 또는 DataLoader가 state_dict()로 내보낸 검증 가능한 상태 mapping입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>None. 객체의 gradient, 난수 상태, 파일 또는 Parameter를 변경합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-amp-autocast" data-search="mytorch.amp.autocast 대상 CUDA 연산을 FP16으로 실행하고 수치 민감 연산은 FP32로 유지하는 context입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.amp.autocast</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-amp-autocast" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">대상 CUDA 연산을 FP16으로 실행하고 수치 민감 연산은 FP32로 유지하는 context입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.amp.autocast(dtype: &#x27;Any&#x27; = &lt;class &#x27;numpy.float16&#x27;&gt;, enabled: &#x27;bool&#x27; = True) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>dtype</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>&lt;class &#x27;numpy.float16&#x27;&gt;</code></td><td>결과 또는 파라미터의 dtype입니다. 생략 시 생성 규칙 또는 입력 dtype을 따릅니다.</td></tr><tr><td><code>enabled</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 현재 문맥에서 계산 그래프 기록을 활성화하고 False이면 비활성화합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 autocast 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-amp-get-autocast-dtype" data-search="mytorch.amp.get_autocast_dtype 현재 autocast가 행렬곱 계열에 사용하는 dtype을 반환합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.amp.get_autocast_dtype</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-amp-get-autocast-dtype" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">현재 autocast가 행렬곱 계열에 사용하는 dtype을 반환합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.amp.get_autocast_dtype() -&gt; &#x27;cp.dtype&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-amp-is-autocast-enabled" data-search="mytorch.amp.is_autocast_enabled 현재 실행 문맥에서 AMP autocast가 활성화됐는지 반환합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.amp.is_autocast_enabled</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-amp-is-autocast-enabled" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">현재 실행 문맥에서 AMP autocast가 활성화됐는지 반환합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.amp.is_autocast_enabled() -&gt; &#x27;bool&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+          </div>
+        </section>
+      </article></div>
+      <nav class="page-end"><a href="../index.html">← 전체 모듈 목록으로</a></nav>
+    </main>
+    <button class="back-to-top" type="button" aria-label="맨 위로">↑</button>
+  </div>
+  <footer>MyTorch 0.12.0 · GPU-only educational framework · API는 현재 소스 시그니처에서 생성되었습니다.</footer>
+  <script src="../assets/js/search-index.js"></script>
+  <script src="../assets/js/docs.js"></script>
+</body>
+</html>

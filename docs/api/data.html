@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="입력과 라벨을 sample 단위로 매핑하고, GPU mini-batch로 효율적으로 묶어 학습 반복에 공급합니다.">
+  <meta name="description" content="GPU Tensor와 실제 이미지·CSV·NPY 파일을 sample 단위로 매핑하고 sampler와 비동기 GPU 전송으로 mini-batch를 공급합니다.">
   <meta name="generator" content="MyTorch docs builder">
-  <title>Dataset과 DataLoader · MyTorch 0.9.0</title>
+  <title>Dataset과 DataLoader · MyTorch 0.12.0</title>
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="../assets/css/docs.css">
 </head>
@@ -13,7 +13,7 @@
   <a class="skip-link" href="#main">본문으로 건너뛰기</a>
   <header class="topbar">
     <button class="menu-button" type="button" aria-label="문서 메뉴 열기" aria-expanded="false">☰</button>
-    <a class="brand" href="../index.html"><span class="brand-mark">M</span><span>MyTorch</span><span class="version">v0.9.0</span></a>
+    <a class="brand" href="../index.html"><span class="brand-mark">M</span><span>MyTorch</span><span class="version">v0.12.0</span></a>
     <div class="search-box">
       <label class="sr-only" for="site-search">API 검색</label>
       <input id="site-search" type="search" placeholder="API 검색…  /" autocomplete="off">
@@ -24,34 +24,88 @@
   <div class="site-layout">
     <aside class="sidebar" aria-label="문서 모듈 탐색">
       <a class="overview-link" href="../index.html">문서 홈</a>
-      <div class="nav-group"><span>Guides</span><a href="../guides/training-and-inference.html">처음부터 끝까지: 학습과 추론</a></div><div class="nav-group"><span>Core</span><a href="tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="autograd.html">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Runtime</span><a href="cuda.html">CUDA 상태 확인</a></div><div class="nav-group"><span>Persistence</span><a href="serialization.html">모델과 학습 체크포인트</a></div><div class="nav-group"><span>Data</span><a href="data.html" aria-current="page">Dataset과 DataLoader</a></div><div class="nav-group"><span>Neural network</span><a href="nn-core.html">Module과 기본 계층</a><a href="nn-activations.html">활성화 함수 Module</a><a href="nn-losses.html">손실 함수 Module</a><a href="nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="nn-conv.html">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="nn-attention.html">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="nn-efficient.html">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="nn-functional-layers.html">함수형 계층 연산</a><a href="nn-functional-activations.html">함수형 활성화 연산</a><a href="nn-functional-losses.html">함수형 손실 연산</a></div><div class="nav-group"><span>Initialization</span><a href="nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="optim-optimizer.html">Optimizer 기반 클래스</a><a href="optim-sgd.html">SGD</a><a href="optim-adam.html">Adam 계열</a><a href="optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="optim-classical.html">ASGD와 Rprop</a><a href="optim-modern.html">Adafactor와 Lion</a></div>
+      <div class="nav-group"><span>Guides</span><a href="../guides/training-and-inference.html">처음부터 끝까지: 학습과 추론</a></div><div class="nav-group"><span>Core</span><a href="tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="autograd.html">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Training</span><a href="amp.html">FP16 자동 혼합정밀도</a></div><div class="nav-group"><span>Runtime</span><a href="cuda.html">CUDA 상태 확인</a></div><div class="nav-group"><span>Persistence</span><a href="serialization.html">모델과 학습 체크포인트</a></div><div class="nav-group"><span>Data</span><a href="data.html" aria-current="page">Dataset과 DataLoader</a><a href="data-transforms.html">이미지 Transform</a></div><div class="nav-group"><span>Neural network</span><a href="nn-core.html">Module과 기본 계층</a><a href="nn-activations.html">활성화 함수 Module</a><a href="nn-losses.html">손실 함수 Module</a><a href="nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="nn-conv.html">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="nn-attention.html">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="nn-efficient.html">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="nn-functional-layers.html">함수형 계층 연산</a><a href="nn-functional-activations.html">함수형 활성화 연산</a><a href="nn-functional-losses.html">함수형 손실 연산</a></div><div class="nav-group"><span>Initialization</span><a href="nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="optim-schedulers.html">Learning Rate Scheduler</a><a href="optim-optimizer.html">Optimizer 기반 클래스</a><a href="optim-sgd.html">SGD</a><a href="optim-adam.html">Adam 계열</a><a href="optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="optim-classical.html">ASGD와 Rprop</a><a href="optim-modern.html">Adafactor와 Lion</a></div>
     </aside>
     <main id="main" class="content">
       <header class="page-header">
         <div class="eyebrow">Data · mytorch.data</div>
         <h1>Dataset과 DataLoader</h1>
-        <p>입력과 라벨을 sample 단위로 매핑하고, GPU mini-batch로 효율적으로 묶어 학습 반복에 공급합니다.</p>
-        <div class="page-meta"><span>MyTorch 0.9.0</span><span>8개 API 항목</span><span>CUDA 전용</span></div>
+        <p>GPU Tensor와 실제 이미지·CSV·NPY 파일을 sample 단위로 매핑하고 sampler와 비동기 GPU 전송으로 mini-batch를 공급합니다.</p>
+        <div class="page-meta"><span>MyTorch 0.12.0</span><span>25개 API 항목</span><span>CUDA 전용</span></div>
       </header>
       <section class="concept-panel">
-        <div><h2>이 모듈을 사용할 때 알아둘 점</h2><ul><li>TensorDataset은 같은 첫 번째 차원을 가진 GPU Tensor들을 sample 단위 tuple로 연결하며, DataLoader는 기본 경로에서 batch 전체를 GPU advanced indexing으로 한 번에 가져옵니다.</li><li>shuffle=True와 seed를 함께 사용하면 실행 간 순서를 재현하면서 epoch마다 새로운 순서를 만들 수 있고, drop_last=True는 크기가 작은 마지막 batch를 제외합니다.</li><li>사용자 정의 Dataset은 __len__과 __getitem__을 구현합니다. default_collate는 Tensor, NumPy 배열, 숫자와 중첩 tuple·list·dict를 재귀적으로 GPU batch로 묶습니다.</li></ul></div>
+        <div><h2>이 모듈을 사용할 때 알아둘 점</h2><ul><li>TensorDataset은 같은 첫 번째 차원을 가진 GPU Tensor들을 sample 단위 tuple로 연결하며, DataLoader는 기본 경로에서 batch 전체를 GPU advanced indexing으로 한 번에 가져옵니다.</li><li>ImageFolder, CSVDataset, NpyDataset은 파일을 CPU에서 읽고 DataLoader가 batch 단위로 pinned memory를 거쳐 지정 CUDA 장치에 전송합니다.</li><li>num_workers는 Windows에서 안전한 thread worker 수이며 sampler, batch sampler, epoch와 무작위 순서는 state_dict로 복원할 수 있습니다.</li></ul></div>
         <div><h2>기본 예제</h2><pre><code>import mytorch as mt
 
-features = mt.randn(1000, 32)
-labels = mt.tensor([index % 4 for index in range(1000)], dtype=mt.int64)
-dataset = mt.data.TensorDataset(features, labels)
+transform = mt.data.transforms.Compose([
+    mt.data.transforms.Resize((224, 224)),
+    mt.data.transforms.ToArray(),
+    mt.data.transforms.Normalize([0.5] * 3, [0.5] * 3),
+])
+dataset = mt.data.ImageFolder(&quot;data/train&quot;, transform=transform)
 loader = mt.data.DataLoader(
-    dataset, batch_size=64, shuffle=True, seed=2026
-)
-
-for batch_features, batch_labels in loader:
-    optimizer.zero_grad()
-    loss = criterion(model(batch_features), batch_labels)
-    loss.backward()
-    optimizer.step()</code></pre></div>
+    dataset, batch_size=64, shuffle=True, num_workers=4,
+    prefetch_factor=2, pin_memory=True, seed=2026,
+)</code></pre></div>
       </section>
-      <nav class="page-toc" aria-label="이 페이지의 API"><strong>페이지 목차</strong><div><a href="#api-mytorch-data-dataloader"><code>DataLoader</code></a><a href="#api-mytorch-data-dataloader-state-dict"><code>DataLoader.state_dict</code></a><a href="#api-mytorch-data-dataloader-load-state-dict"><code>DataLoader.load_state_dict</code></a><a href="#api-mytorch-data-dataset"><code>Dataset</code></a><a href="#api-mytorch-data-subset"><code>Subset</code></a><a href="#api-mytorch-data-tensordataset"><code>TensorDataset</code></a><a href="#api-mytorch-data-default-collate"><code>default_collate</code></a><a href="#api-mytorch-data-random-split"><code>random_split</code></a></div></nav>
-      <div class="api-list"><article class="api-card searchable" id="api-mytorch-data-dataloader" data-search="mytorch.data.DataLoader Dataset을 선택적으로 섞고 GPU mini-batch로 묶어 반복 가능한 loader입니다.">
+      <nav class="page-toc" aria-label="이 페이지의 API"><strong>페이지 목차</strong><div><a href="#api-mytorch-data-batchsampler"><code>BatchSampler</code></a><a href="#api-mytorch-data-csvdataset"><code>CSVDataset</code></a><a href="#api-mytorch-data-dataloader"><code>DataLoader</code></a><a href="#api-mytorch-data-dataloader-state-dict"><code>DataLoader.state_dict</code></a><a href="#api-mytorch-data-dataloader-load-state-dict"><code>DataLoader.load_state_dict</code></a><a href="#api-mytorch-data-dataloader-close"><code>DataLoader.close</code></a><a href="#api-mytorch-data-dataset"><code>Dataset</code></a><a href="#api-mytorch-data-imagefolder"><code>ImageFolder</code></a><a href="#api-mytorch-data-iterabledataset"><code>IterableDataset</code></a><a href="#api-mytorch-data-npydataset"><code>NpyDataset</code></a><a href="#api-mytorch-data-randomsampler"><code>RandomSampler</code></a><a href="#api-mytorch-data-randomsampler-state-dict"><code>RandomSampler.state_dict</code></a><a href="#api-mytorch-data-randomsampler-load-state-dict"><code>RandomSampler.load_state_dict</code></a><a href="#api-mytorch-data-sampler"><code>Sampler</code></a><a href="#api-mytorch-data-sampler-state-dict"><code>Sampler.state_dict</code></a><a href="#api-mytorch-data-sampler-load-state-dict"><code>Sampler.load_state_dict</code></a><a href="#api-mytorch-data-sequentialsampler"><code>SequentialSampler</code></a><a href="#api-mytorch-data-subset"><code>Subset</code></a><a href="#api-mytorch-data-subsetrandomsampler"><code>SubsetRandomSampler</code></a><a href="#api-mytorch-data-tensordataset"><code>TensorDataset</code></a><a href="#api-mytorch-data-weightedrandomsampler"><code>WeightedRandomSampler</code></a><a href="#api-mytorch-data-weightedrandomsampler-state-dict"><code>WeightedRandomSampler.state_dict</code></a><a href="#api-mytorch-data-weightedrandomsampler-load-state-dict"><code>WeightedRandomSampler.load_state_dict</code></a><a href="#api-mytorch-data-default-collate"><code>default_collate</code></a><a href="#api-mytorch-data-random-split"><code>random_split</code></a></div></nav>
+      <div class="api-list"><article class="api-card searchable" id="api-mytorch-data-batchsampler" data-search="mytorch.data.BatchSampler 다른 Sampler의 index를 고정 크기 mini-batch 목록으로 묶습니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.data.BatchSampler</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-data-batchsampler" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">다른 Sampler의 index를 고정 크기 mini-batch 목록으로 묶습니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.data.BatchSampler(sampler: &#x27;Iterable[int]&#x27;, batch_size: &#x27;int&#x27;, drop_last: &#x27;bool&#x27;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>sampler</code></td><td><code>&#x27;Iterable[int]&#x27;</code></td><td><code>필수</code></td><td>sample 인덱스의 순서와 선택 방법을 제공하는 Sampler입니다.</td></tr><tr><td><code>batch_size</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>한 번의 반복에서 묶어 반환할 sample 수인 양의 정수입니다.</td></tr><tr><td><code>drop_last</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>필수</code></td><td>True이면 dataset 크기가 batch_size로 나누어떨어지지 않을 때 작은 마지막 batch를 제외합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 BatchSampler 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다.</li><li>멀티프로세스 worker와 pinned CPU memory는 GPU 전용 loader에서 지원하지 않습니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-data-csvdataset" data-search="mytorch.data.CSVDataset CSV의 선택한 열을 numeric feature와 target sample로 읽습니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.data.CSVDataset</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-data-csvdataset" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">CSV의 선택한 열을 numeric feature와 target sample로 읽습니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.data.CSVDataset(path: &#x27;str | Path&#x27;, *, target_column: &#x27;str | int&#x27;, feature_columns: &#x27;Sequence[str | int] | None&#x27; = None, delimiter: &#x27;str&#x27; = &#x27;,&#x27;, has_header: &#x27;bool&#x27; = True, feature_dtype: &#x27;Any&#x27; = &lt;class &#x27;numpy.float32&#x27;&gt;, target_dtype: &#x27;Any&#x27; = &lt;class &#x27;numpy.int64&#x27;&gt;, transform: &#x27;Callable[[np.ndarray], Any] | None&#x27; = None, target_transform: &#x27;Callable[[Any], Any] | None&#x27; = None) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>path</code></td><td><code>&#x27;str | Path&#x27;</code></td><td><code>필수</code></td><td>읽거나 저장할 파일 시스템 경로입니다.</td></tr><tr><td><code>target_column</code></td><td><code>&#x27;str | int&#x27;</code></td><td><code>필수</code></td><td>CSV에서 label 또는 회귀 target으로 사용할 열 이름이나 인덱스입니다.</td></tr><tr><td><code>feature_columns</code></td><td><code>&#x27;Sequence[str | int] | None&#x27;</code></td><td><code>None</code></td><td>CSV 입력 feature로 사용할 열 이름 또는 인덱스 목록입니다.</td></tr><tr><td><code>delimiter</code></td><td><code>&#x27;str&#x27;</code></td><td><code>&#x27;,&#x27;</code></td><td>CSV 열을 구분하는 한 문자입니다.</td></tr><tr><td><code>has_header</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 CSV 첫 행을 열 이름으로 해석합니다.</td></tr><tr><td><code>feature_dtype</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>&lt;class &#x27;numpy.float32&#x27;&gt;</code></td><td>CSV feature NumPy 배열의 dtype입니다.</td></tr><tr><td><code>target_dtype</code></td><td><code>&#x27;Any&#x27;</code></td><td><code>&lt;class &#x27;numpy.int64&#x27;&gt;</code></td><td>CSV target 값의 NumPy dtype입니다.</td></tr><tr><td><code>transform</code></td><td><code>&#x27;Callable[[np.ndarray], Any] | None&#x27;</code></td><td><code>None</code></td><td>입력 sample에 적용할 CPU callable 또는 transform 조합입니다.</td></tr><tr><td><code>target_transform</code></td><td><code>&#x27;Callable[[Any], Any] | None&#x27;</code></td><td><code>None</code></td><td>label 또는 target에 적용할 CPU callable입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 CSVDataset 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다.</li><li>멀티프로세스 worker와 pinned CPU memory는 GPU 전용 loader에서 지원하지 않습니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-data-dataloader" data-search="mytorch.data.DataLoader Dataset을 선택적으로 섞고 GPU mini-batch로 묶어 반복 가능한 loader입니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -62,11 +116,11 @@ for batch_features, batch_labels in loader:
         <p class="lead">Dataset을 선택적으로 섞고 GPU mini-batch로 묶어 반복 가능한 loader입니다.</p>
         <section class="signature-block" aria-label="시그니처">
           <div class="section-label">Signature</div>
-          <pre><code>mytorch.data.DataLoader(dataset: &#x27;Dataset[SampleT]&#x27;, batch_size: &#x27;int&#x27; = 1, shuffle: &#x27;bool&#x27; = False, drop_last: &#x27;bool&#x27; = False, collate_fn: &#x27;CollateFn[SampleT, BatchT] | None&#x27; = None, *, seed: &#x27;int | None&#x27; = None) -&gt; &#x27;None&#x27;</code></pre>
+          <pre><code>mytorch.data.DataLoader(dataset: &#x27;Dataset[SampleT] | IterableDataset[SampleT]&#x27;, batch_size: &#x27;int&#x27; = 1, shuffle: &#x27;bool&#x27; = False, drop_last: &#x27;bool&#x27; = False, collate_fn: &#x27;CollateFn[SampleT, BatchT] | None&#x27; = None, *, sampler: &#x27;Sampler | None&#x27; = None, batch_sampler: &#x27;BatchSampler | None&#x27; = None, num_workers: &#x27;int&#x27; = 0, prefetch_factor: &#x27;int&#x27; = 2, persistent_workers: &#x27;bool&#x27; = False, pin_memory: &#x27;bool&#x27; = True, device: &#x27;str | int&#x27; = &#x27;cuda:0&#x27;, seed: &#x27;int | None&#x27; = None) -&gt; &#x27;None&#x27;</code></pre>
         </section>
         <section>
           <h3>파라미터</h3>
-          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>dataset</code></td><td><code>&#x27;Dataset[SampleT]&#x27;</code></td><td><code>필수</code></td><td>sample 개수와 정수 인덱싱을 제공하는 map-style Dataset입니다.</td></tr><tr><td><code>batch_size</code></td><td><code>&#x27;int&#x27;</code></td><td><code>1</code></td><td>한 번의 반복에서 묶어 반환할 sample 수인 양의 정수입니다.</td></tr><tr><td><code>shuffle</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>False</code></td><td>True이면 각 epoch를 시작할 때 sample 인덱스 순서를 다시 섞습니다.</td></tr><tr><td><code>drop_last</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>False</code></td><td>True이면 dataset 크기가 batch_size로 나누어떨어지지 않을 때 작은 마지막 batch를 제외합니다.</td></tr><tr><td><code>collate_fn</code></td><td><code>&#x27;CollateFn[SampleT, BatchT] | None&#x27;</code></td><td><code>None</code></td><td>sample 목록을 하나의 batch 구조로 결합하는 callable입니다. 생략하면 default_collate를 사용합니다.</td></tr><tr><td><code>seed</code></td><td><code>&#x27;int | None&#x27;</code></td><td><code>None</code></td><td>shuffle 또는 random_split 순서를 재현할 Python 정수 seed입니다. None이면 비결정적 상태로 시작합니다.</td></tr></tbody></table></div>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>dataset</code></td><td><code>&#x27;Dataset[SampleT] | IterableDataset[SampleT]&#x27;</code></td><td><code>필수</code></td><td>sample 개수와 정수 인덱싱을 제공하는 map-style Dataset입니다.</td></tr><tr><td><code>batch_size</code></td><td><code>&#x27;int&#x27;</code></td><td><code>1</code></td><td>한 번의 반복에서 묶어 반환할 sample 수인 양의 정수입니다.</td></tr><tr><td><code>shuffle</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>False</code></td><td>True이면 각 epoch를 시작할 때 sample 인덱스 순서를 다시 섞습니다.</td></tr><tr><td><code>drop_last</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>False</code></td><td>True이면 dataset 크기가 batch_size로 나누어떨어지지 않을 때 작은 마지막 batch를 제외합니다.</td></tr><tr><td><code>collate_fn</code></td><td><code>&#x27;CollateFn[SampleT, BatchT] | None&#x27;</code></td><td><code>None</code></td><td>sample 목록을 하나의 batch 구조로 결합하는 callable입니다. 생략하면 default_collate를 사용합니다.</td></tr><tr><td><code>sampler</code></td><td><code>&#x27;Sampler | None&#x27;</code></td><td><code>None</code></td><td>sample 인덱스의 순서와 선택 방법을 제공하는 Sampler입니다.</td></tr><tr><td><code>batch_sampler</code></td><td><code>&#x27;BatchSampler | None&#x27;</code></td><td><code>None</code></td><td>한 번에 사용할 sample index 목록을 생성하는 BatchSampler입니다.</td></tr><tr><td><code>num_workers</code></td><td><code>&#x27;int&#x27;</code></td><td><code>0</code></td><td>파일 읽기와 transform에 사용할 CPU thread worker 수입니다.</td></tr><tr><td><code>prefetch_factor</code></td><td><code>&#x27;int&#x27;</code></td><td><code>2</code></td><td>worker마다 미리 준비해 둘 batch 수입니다.</td></tr><tr><td><code>persistent_workers</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>False</code></td><td>True이면 epoch 사이에도 thread worker pool을 유지합니다.</td></tr><tr><td><code>pin_memory</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 pinned host memory와 비동기 CUDA 전송을 사용합니다.</td></tr><tr><td><code>device</code></td><td><code>&#x27;str | int&#x27;</code></td><td><code>&#x27;cuda:0&#x27;</code></td><td>CUDA 장치입니다. &#x27;cuda:N&#x27; 문자열 또는 정수 N을 사용하며 기본값은 cuda:0입니다.</td></tr><tr><td><code>seed</code></td><td><code>&#x27;int | None&#x27;</code></td><td><code>None</code></td><td>shuffle 또는 random_split 순서를 재현할 Python 정수 seed입니다. None이면 비결정적 상태로 시작합니다.</td></tr></tbody></table></div>
         </section>
         <section class="api-grid">
           <div>
@@ -135,6 +189,34 @@ for batch_features, batch_labels in loader:
           </div>
         </section>
       </article>
+<article class="api-card searchable" id="api-mytorch-data-dataloader-close" data-search="mytorch.data.DataLoader.close DataLoader 객체의 close 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.data.DataLoader.close</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-data-dataloader-close" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">DataLoader 객체의 close 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.data.DataLoader.close(self) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>연산 결과 Tensor. 별도 설명이 없으면 입력과 같은 CUDA 장치에 있고 autograd 연결을 유지합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다.</li><li>멀티프로세스 worker와 pinned CPU memory는 GPU 전용 loader에서 지원하지 않습니다.</li></ul>
+          </div>
+        </section>
+      </article>
 <article class="api-card searchable" id="api-mytorch-data-dataset" data-search="mytorch.data.Dataset 정수 인덱스로 한 sample을 반환하는 유한 map-style dataset의 추상 기반 클래스입니다.">
         <header class="api-heading">
           <div>
@@ -156,6 +238,286 @@ for batch_features, batch_labels in loader:
           <div>
             <h3>반환값</h3>
             <p>sample 단위 정수 인덱싱과 길이 조회를 지원하는 Dataset 객체입니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다.</li><li>멀티프로세스 worker와 pinned CPU memory는 GPU 전용 loader에서 지원하지 않습니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-data-imagefolder" data-search="mytorch.data.ImageFolder 클래스 이름별 하위 폴더의 RGB 이미지를 label index와 함께 읽습니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.data.ImageFolder</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-data-imagefolder" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">클래스 이름별 하위 폴더의 RGB 이미지를 label index와 함께 읽습니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.data.ImageFolder(root: &#x27;str | Path&#x27;, transform: &#x27;Callable[[Any], Any] | None&#x27; = None, target_transform: &#x27;Callable[[int], Any] | None&#x27; = None, *, extensions: &#x27;Sequence[str] | None&#x27; = None) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>root</code></td><td><code>&#x27;str | Path&#x27;</code></td><td><code>필수</code></td><td>클래스별 하위 디렉터리가 있는 ImageFolder 루트 경로입니다.</td></tr><tr><td><code>transform</code></td><td><code>&#x27;Callable[[Any], Any] | None&#x27;</code></td><td><code>None</code></td><td>입력 sample에 적용할 CPU callable 또는 transform 조합입니다.</td></tr><tr><td><code>target_transform</code></td><td><code>&#x27;Callable[[int], Any] | None&#x27;</code></td><td><code>None</code></td><td>label 또는 target에 적용할 CPU callable입니다.</td></tr><tr><td><code>extensions</code></td><td><code>&#x27;Sequence[str] | None&#x27;</code></td><td><code>None</code></td><td>ImageFolder가 허용할 파일 확장자 목록입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 ImageFolder 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다.</li><li>멀티프로세스 worker와 pinned CPU memory는 GPU 전용 loader에서 지원하지 않습니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-data-iterabledataset" data-search="mytorch.data.IterableDataset 길이를 미리 정하지 않고 sample을 순서대로 생성하는 streaming dataset 기반입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.data.IterableDataset</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-data-iterabledataset" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">길이를 미리 정하지 않고 sample을 순서대로 생성하는 streaming dataset 기반입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.data.IterableDataset()</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 IterableDataset 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다.</li><li>멀티프로세스 worker와 pinned CPU memory는 GPU 전용 loader에서 지원하지 않습니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-data-npydataset" data-search="mytorch.data.NpyDataset 입력과 target NPY 배열을 선택적으로 memory-map해 sample 단위로 제공합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.data.NpyDataset</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-data-npydataset" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">입력과 target NPY 배열을 선택적으로 memory-map해 sample 단위로 제공합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.data.NpyDataset(data_path: &#x27;str | Path&#x27;, target_path: &#x27;str | Path | None&#x27; = None, *, mmap_mode: &#x27;str | None&#x27; = &#x27;r&#x27;, transform: &#x27;Callable[[Any], Any] | None&#x27; = None, target_transform: &#x27;Callable[[Any], Any] | None&#x27; = None) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>data_path</code></td><td><code>&#x27;str | Path&#x27;</code></td><td><code>필수</code></td><td>입력 sample 배열을 저장한 NPY 파일 경로입니다.</td></tr><tr><td><code>target_path</code></td><td><code>&#x27;str | Path | None&#x27;</code></td><td><code>None</code></td><td>선택적 label 배열 NPY 파일 경로입니다.</td></tr><tr><td><code>mmap_mode</code></td><td><code>&#x27;str | None&#x27;</code></td><td><code>&#x27;r&#x27;</code></td><td>NPY 파일을 전체 적재하지 않고 접근할 NumPy memory-map 모드입니다.</td></tr><tr><td><code>transform</code></td><td><code>&#x27;Callable[[Any], Any] | None&#x27;</code></td><td><code>None</code></td><td>입력 sample에 적용할 CPU callable 또는 transform 조합입니다.</td></tr><tr><td><code>target_transform</code></td><td><code>&#x27;Callable[[Any], Any] | None&#x27;</code></td><td><code>None</code></td><td>label 또는 target에 적용할 CPU callable입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 NpyDataset 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다.</li><li>멀티프로세스 worker와 pinned CPU memory는 GPU 전용 loader에서 지원하지 않습니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-data-randomsampler" data-search="mytorch.data.RandomSampler 복원 가능한 난수 상태로 Dataset index 순서를 섞거나 복원 추출합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.data.RandomSampler</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-data-randomsampler" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">복원 가능한 난수 상태로 Dataset index 순서를 섞거나 복원 추출합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.data.RandomSampler(data_source: &#x27;Sized&#x27;, replacement: &#x27;bool&#x27; = False, num_samples: &#x27;int | None&#x27; = None, *, seed: &#x27;int | None&#x27; = None) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>data_source</code></td><td><code>&#x27;Sized&#x27;</code></td><td><code>필수</code></td><td>Sampler가 index를 생성할 길이 있는 원본 Dataset입니다.</td></tr><tr><td><code>replacement</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>False</code></td><td>True이면 sampler가 같은 index를 여러 번 선택할 수 있습니다.</td></tr><tr><td><code>num_samples</code></td><td><code>&#x27;int | None&#x27;</code></td><td><code>None</code></td><td>sampler가 한 iteration에 반환할 index 수입니다.</td></tr><tr><td><code>seed</code></td><td><code>&#x27;int | None&#x27;</code></td><td><code>None</code></td><td>shuffle 또는 random_split 순서를 재현할 Python 정수 seed입니다. None이면 비결정적 상태로 시작합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 RandomSampler 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다.</li><li>멀티프로세스 worker와 pinned CPU memory는 GPU 전용 loader에서 지원하지 않습니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-data-randomsampler-state-dict" data-search="mytorch.data.RandomSampler.state_dict RandomSampler 객체의 state_dict 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.data.RandomSampler.state_dict</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-data-randomsampler-state-dict" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">RandomSampler 객체의 state_dict 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.data.RandomSampler.state_dict(self) -&gt; &#x27;dict[str, Any]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>이름과 GPU Tensor를 연결한 순서 보존 mapping입니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다.</li><li>멀티프로세스 worker와 pinned CPU memory는 GPU 전용 loader에서 지원하지 않습니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-data-randomsampler-load-state-dict" data-search="mytorch.data.RandomSampler.load_state_dict RandomSampler 객체의 load_state_dict 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.data.RandomSampler.load_state_dict</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-data-randomsampler-load-state-dict" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">RandomSampler 객체의 load_state_dict 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.data.RandomSampler.load_state_dict(self, state_dict: &#x27;Mapping[str, Any]&#x27;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>state_dict</code></td><td><code>&#x27;Mapping[str, Any]&#x27;</code></td><td><code>필수</code></td><td>모델, optimizer 또는 DataLoader가 state_dict()로 내보낸 검증 가능한 상태 mapping입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>None. 객체의 gradient, 난수 상태, 파일 또는 Parameter를 변경합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다.</li><li>멀티프로세스 worker와 pinned CPU memory는 GPU 전용 loader에서 지원하지 않습니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-data-sampler" data-search="mytorch.data.Sampler Dataset에서 읽을 sample index의 순서를 정의하는 기반 클래스입니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.data.Sampler</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-data-sampler" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Dataset에서 읽을 sample index의 순서를 정의하는 기반 클래스입니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.data.Sampler()</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 Sampler 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다.</li><li>멀티프로세스 worker와 pinned CPU memory는 GPU 전용 loader에서 지원하지 않습니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-data-sampler-state-dict" data-search="mytorch.data.Sampler.state_dict Sampler 객체의 state_dict 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.data.Sampler.state_dict</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-data-sampler-state-dict" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Sampler 객체의 state_dict 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.data.Sampler.state_dict(self) -&gt; &#x27;dict[str, Any]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>이름과 GPU Tensor를 연결한 순서 보존 mapping입니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다.</li><li>멀티프로세스 worker와 pinned CPU memory는 GPU 전용 loader에서 지원하지 않습니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-data-sampler-load-state-dict" data-search="mytorch.data.Sampler.load_state_dict Sampler 객체의 load_state_dict 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.data.Sampler.load_state_dict</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-data-sampler-load-state-dict" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Sampler 객체의 load_state_dict 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.data.Sampler.load_state_dict(self, state_dict: &#x27;Mapping[str, Any]&#x27;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>state_dict</code></td><td><code>&#x27;Mapping[str, Any]&#x27;</code></td><td><code>필수</code></td><td>모델, optimizer 또는 DataLoader가 state_dict()로 내보낸 검증 가능한 상태 mapping입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>None. 객체의 gradient, 난수 상태, 파일 또는 Parameter를 변경합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다.</li><li>멀티프로세스 worker와 pinned CPU memory는 GPU 전용 loader에서 지원하지 않습니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-data-sequentialsampler" data-search="mytorch.data.SequentialSampler Dataset index를 처음부터 끝까지 순서대로 반환합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.data.SequentialSampler</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-data-sequentialsampler" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">Dataset index를 처음부터 끝까지 순서대로 반환합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.data.SequentialSampler(data_source: &#x27;Sized&#x27;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>data_source</code></td><td><code>&#x27;Sized&#x27;</code></td><td><code>필수</code></td><td>Sampler가 index를 생성할 길이 있는 원본 Dataset입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 SequentialSampler 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
           </div>
           <div>
             <h3>동작과 주의사항</h3>
@@ -191,6 +553,34 @@ for batch_features, batch_labels in loader:
           </div>
         </section>
       </article>
+<article class="api-card searchable" id="api-mytorch-data-subsetrandomsampler" data-search="mytorch.data.SubsetRandomSampler 지정한 일부 index만 매 iteration 무작위 순서로 반환합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.data.SubsetRandomSampler</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-data-subsetrandomsampler" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">지정한 일부 index만 매 iteration 무작위 순서로 반환합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.data.SubsetRandomSampler(indices: &#x27;Sequence[int]&#x27;, *, seed: &#x27;int | None&#x27; = None) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>indices</code></td><td><code>&#x27;Sequence[int]&#x27;</code></td><td><code>필수</code></td><td>원본 Dataset에서 Subset에 포함할 sample 인덱스 sequence입니다.</td></tr><tr><td><code>seed</code></td><td><code>&#x27;int | None&#x27;</code></td><td><code>None</code></td><td>shuffle 또는 random_split 순서를 재현할 Python 정수 seed입니다. None이면 비결정적 상태로 시작합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 SubsetRandomSampler 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다.</li><li>멀티프로세스 worker와 pinned CPU memory는 GPU 전용 loader에서 지원하지 않습니다.</li></ul>
+          </div>
+        </section>
+      </article>
 <article class="api-card searchable" id="api-mytorch-data-tensordataset" data-search="mytorch.data.TensorDataset 여러 GPU Tensor의 첫 번째 축을 입력·라벨 등 하나의 sample tuple로 연결합니다.">
         <header class="api-heading">
           <div>
@@ -212,6 +602,90 @@ for batch_features, batch_labels in loader:
           <div>
             <h3>반환값</h3>
             <p>sample 단위 정수 인덱싱과 길이 조회를 지원하는 TensorDataset 객체입니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다.</li><li>멀티프로세스 worker와 pinned CPU memory는 GPU 전용 loader에서 지원하지 않습니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-data-weightedrandomsampler" data-search="mytorch.data.WeightedRandomSampler sample별 가중치에 비례해 index를 추출합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-class">Class</span>
+            <h2><code>mytorch.data.WeightedRandomSampler</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-data-weightedrandomsampler" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">sample별 가중치에 비례해 index를 추출합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.data.WeightedRandomSampler(weights: &#x27;Sequence[float] | np.ndarray&#x27;, num_samples: &#x27;int&#x27;, replacement: &#x27;bool&#x27; = True, *, seed: &#x27;int | None&#x27; = None) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>weights</code></td><td><code>&#x27;Sequence[float] | np.ndarray&#x27;</code></td><td><code>필수</code></td><td>WeightedRandomSampler의 sample별 비음수 선택 가중치입니다.</td></tr><tr><td><code>num_samples</code></td><td><code>&#x27;int&#x27;</code></td><td><code>필수</code></td><td>sampler가 한 iteration에 반환할 index 수입니다.</td></tr><tr><td><code>replacement</code></td><td><code>&#x27;bool&#x27;</code></td><td><code>True</code></td><td>True이면 sampler가 같은 index를 여러 번 선택할 수 있습니다.</td></tr><tr><td><code>seed</code></td><td><code>&#x27;int | None&#x27;</code></td><td><code>None</code></td><td>shuffle 또는 random_split 순서를 재현할 Python 정수 seed입니다. None이면 비결정적 상태로 시작합니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>설정된 WeightedRandomSampler 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다.</li><li>멀티프로세스 worker와 pinned CPU memory는 GPU 전용 loader에서 지원하지 않습니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-data-weightedrandomsampler-state-dict" data-search="mytorch.data.WeightedRandomSampler.state_dict WeightedRandomSampler 객체의 state_dict 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.data.WeightedRandomSampler.state_dict</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-data-weightedrandomsampler-state-dict" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">WeightedRandomSampler 객체의 state_dict 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.data.WeightedRandomSampler.state_dict(self) -&gt; &#x27;dict[str, Any]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>이름과 GPU Tensor를 연결한 순서 보존 mapping입니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다.</li><li>멀티프로세스 worker와 pinned CPU memory는 GPU 전용 loader에서 지원하지 않습니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-data-weightedrandomsampler-load-state-dict" data-search="mytorch.data.WeightedRandomSampler.load_state_dict WeightedRandomSampler 객체의 load_state_dict 동작을 수행합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-method">Method</span>
+            <h2><code>mytorch.data.WeightedRandomSampler.load_state_dict</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-data-weightedrandomsampler-load-state-dict" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">WeightedRandomSampler 객체의 load_state_dict 동작을 수행합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.data.WeightedRandomSampler.load_state_dict(self, state_dict: &#x27;Mapping[str, Any]&#x27;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>state_dict</code></td><td><code>&#x27;Mapping[str, Any]&#x27;</code></td><td><code>필수</code></td><td>모델, optimizer 또는 DataLoader가 state_dict()로 내보낸 검증 가능한 상태 mapping입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>None. 객체의 gradient, 난수 상태, 파일 또는 Parameter를 변경합니다.</p>
           </div>
           <div>
             <h3>동작과 주의사항</h3>
@@ -279,7 +753,7 @@ for batch_features, batch_labels in loader:
     </main>
     <button class="back-to-top" type="button" aria-label="맨 위로">↑</button>
   </div>
-  <footer>MyTorch 0.9.0 · GPU-only educational framework · API는 현재 소스 시그니처에서 생성되었습니다.</footer>
+  <footer>MyTorch 0.12.0 · GPU-only educational framework · API는 현재 소스 시그니처에서 생성되었습니다.</footer>
   <script src="../assets/js/search-index.js"></script>
   <script src="../assets/js/docs.js"></script>
 </body>

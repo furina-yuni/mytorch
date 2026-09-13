@@ -4,27 +4,27 @@
       "slug": "training-and-inference",
       "title": "처음부터 끝까지: 학습과 추론",
       "eyebrow": "Guides",
-      "summary": "Dataset과 DataLoader로 GPU mini-batch를 만들고 분류 모델을 학습·평가·저장한 뒤 별도 프로그램에서 추론하는 전체 흐름입니다.",
+      "summary": "ImageFolder와 비동기 DataLoader로 GPU mini-batch를 만들고 AMP·scheduler로 학습한 뒤 전체 checkpoint를 복원해 추론하는 흐름입니다.",
       "intro": [
-        "TensorDataset은 입력과 라벨의 첫 번째 축을 sample 단위로 연결하고, DataLoader는 이를 mini-batch로 나누어 매 epoch 공급합니다.",
-        "학습에서는 model.train()을 호출하고 각 batch마다 gradient 초기화 → forward → loss → backward → optimizer 갱신 순서를 지킵니다.",
-        "평가와 추론에서는 model.eval()로 계층 동작을 전환하고 mt.no_grad()로 계산 그래프 생성을 막습니다. 모든 수치 데이터와 optimizer 상태는 GPU에 유지됩니다."
+        "ImageFolder는 클래스별 폴더를 label과 연결하고 CPU transform 뒤 DataLoader가 pinned-memory batch를 GPU로 전송합니다.",
+        "학습에서는 autocast forward → scaled backward → 안전한 optimizer step → scheduler 순서를 지킵니다.",
+        "평가와 추론에서는 model.eval()과 mt.no_grad()를 함께 사용하며 checkpoint에서 동일 모델 Parameter를 복원합니다."
       ],
       "flow": [
-        {"step": "1", "title": "Dataset", "text": "GPU 입력과 라벨을 sample 단위로 연결합니다."},
-        {"step": "2", "title": "DataLoader", "text": "batch 크기, shuffle과 재현 seed를 설정합니다."},
-        {"step": "3", "title": "학습", "text": "각 mini-batch에서 backward와 optimizer step을 반복합니다."},
-        {"step": "4", "title": "평가·저장", "text": "eval과 no_grad로 검증한 뒤 state_dict를 저장합니다."},
-        {"step": "5", "title": "추론", "text": "같은 모델 구조에 state를 복원해 새 입력을 예측합니다."}
+        {"step": "1", "title": "Dataset·Transform", "text": "파일과 label을 연결하고 resize·정규화를 적용합니다."},
+        {"step": "2", "title": "DataLoader", "text": "thread prefetch와 비동기 GPU batch 전송을 설정합니다."},
+        {"step": "3", "title": "AMP 학습", "text": "autocast와 GradScaler로 안정적인 FP16 학습을 실행합니다."},
+        {"step": "4", "title": "Schedule·저장", "text": "learning rate를 조절하고 전체 학습 상태를 checkpoint로 저장합니다."},
+        {"step": "5", "title": "추론", "text": "모델 state를 복원하고 별도 이미지 batch를 예측합니다."}
       ],
-      "training_code_file": "examples/train_classifier.py",
+      "training_code_file": "examples/train_imagefolder_amp.py",
       "training_notes": [
-        "TensorDataset(train_x, train_y)는 index 하나에 (입력, 라벨) tuple 하나를 대응시킵니다. 모든 Tensor의 sample 수와 CUDA 장치가 같아야 합니다.",
-        "DataLoader는 기본 TensorDataset 경로에서 batch index를 GPU에 한 번 전달해 입력과 라벨을 벡터화해서 가져옵니다. shuffle=True와 seed를 함께 쓰면 실행 간 순서를 재현할 수 있습니다.",
-        "CrossEntropyLoss에는 softmax를 거치지 않은 logits와 int64 class index를 전달합니다. optimizer.zero_grad()를 생략하면 이전 batch의 gradient가 누적됩니다.",
-        "loss.item()은 GPU 동기화를 일으키므로 예제처럼 로그를 표시할 때만 호출하는 편이 좋습니다. 검증에는 model.eval()과 mt.no_grad()를 함께 사용합니다."
+        "ImageFolder root에는 class 이름별 하위 디렉터리를 만들고 그 안에 이미지를 둡니다. 클래스 이름의 사전순서가 int64 label이 됩니다.",
+        "기하 transform 뒤 ToArray와 Normalize를 적용합니다. num_workers는 CPU thread 수이며 CUDA 접근은 main thread만 수행합니다.",
+        "CrossEntropyLoss에는 softmax 전 logits와 int64 class index를 전달하고 GradScaler가 True를 반환한 update만 유효한 optimizer step입니다.",
+        "checkpoint에는 모델, optimizer, scheduler, scaler, DataLoader와 RNG 상태를 함께 저장합니다."
       ],
-      "inference_code_file": "examples/infer_classifier.py",
+      "inference_code_file": "examples/infer_imagefolder_amp.py",
       "inference_notes": [
         "mt.load()는 저장된 Tensor를 지정 CUDA 장치에 올리고, load_state_dict(strict=True)는 모델 key와 shape·dtype 불일치를 즉시 보고합니다.",
         "model.eval()은 gradient를 끄지 않고 mt.no_grad()도 train/eval 동작을 바꾸지 않으므로 안전한 추론에는 둘 다 필요합니다.",

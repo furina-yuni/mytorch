@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="회귀·분류·분포·ranking·metric·segmentation 손실의 입력 shape와 reduction 규칙을 설명합니다.">
   <meta name="generator" content="MyTorch docs builder">
-  <title>함수형 손실 연산 · MyTorch 0.9.0</title>
+  <title>함수형 손실 연산 · MyTorch 0.12.0</title>
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="../assets/css/docs.css">
 </head>
@@ -13,7 +13,7 @@
   <a class="skip-link" href="#main">본문으로 건너뛰기</a>
   <header class="topbar">
     <button class="menu-button" type="button" aria-label="문서 메뉴 열기" aria-expanded="false">☰</button>
-    <a class="brand" href="../index.html"><span class="brand-mark">M</span><span>MyTorch</span><span class="version">v0.9.0</span></a>
+    <a class="brand" href="../index.html"><span class="brand-mark">M</span><span>MyTorch</span><span class="version">v0.12.0</span></a>
     <div class="search-box">
       <label class="sr-only" for="site-search">API 검색</label>
       <input id="site-search" type="search" placeholder="API 검색…  /" autocomplete="off">
@@ -24,14 +24,14 @@
   <div class="site-layout">
     <aside class="sidebar" aria-label="문서 모듈 탐색">
       <a class="overview-link" href="../index.html">문서 홈</a>
-      <div class="nav-group"><span>Guides</span><a href="../guides/training-and-inference.html">처음부터 끝까지: 학습과 추론</a></div><div class="nav-group"><span>Core</span><a href="tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="autograd.html">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Runtime</span><a href="cuda.html">CUDA 상태 확인</a></div><div class="nav-group"><span>Persistence</span><a href="serialization.html">모델과 학습 체크포인트</a></div><div class="nav-group"><span>Data</span><a href="data.html">Dataset과 DataLoader</a></div><div class="nav-group"><span>Neural network</span><a href="nn-core.html">Module과 기본 계층</a><a href="nn-activations.html">활성화 함수 Module</a><a href="nn-losses.html">손실 함수 Module</a><a href="nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="nn-conv.html">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="nn-attention.html">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="nn-efficient.html">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="nn-functional-layers.html">함수형 계층 연산</a><a href="nn-functional-activations.html">함수형 활성화 연산</a><a href="nn-functional-losses.html" aria-current="page">함수형 손실 연산</a></div><div class="nav-group"><span>Initialization</span><a href="nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="optim-optimizer.html">Optimizer 기반 클래스</a><a href="optim-sgd.html">SGD</a><a href="optim-adam.html">Adam 계열</a><a href="optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="optim-classical.html">ASGD와 Rprop</a><a href="optim-modern.html">Adafactor와 Lion</a></div>
+      <div class="nav-group"><span>Guides</span><a href="../guides/training-and-inference.html">처음부터 끝까지: 학습과 추론</a></div><div class="nav-group"><span>Core</span><a href="tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="autograd.html">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Training</span><a href="amp.html">FP16 자동 혼합정밀도</a></div><div class="nav-group"><span>Runtime</span><a href="cuda.html">CUDA 상태 확인</a></div><div class="nav-group"><span>Persistence</span><a href="serialization.html">모델과 학습 체크포인트</a></div><div class="nav-group"><span>Data</span><a href="data.html">Dataset과 DataLoader</a><a href="data-transforms.html">이미지 Transform</a></div><div class="nav-group"><span>Neural network</span><a href="nn-core.html">Module과 기본 계층</a><a href="nn-activations.html">활성화 함수 Module</a><a href="nn-losses.html">손실 함수 Module</a><a href="nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="nn-conv.html">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="nn-attention.html">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="nn-efficient.html">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="nn-functional-layers.html">함수형 계층 연산</a><a href="nn-functional-activations.html">함수형 활성화 연산</a><a href="nn-functional-losses.html" aria-current="page">함수형 손실 연산</a></div><div class="nav-group"><span>Initialization</span><a href="nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="optim-schedulers.html">Learning Rate Scheduler</a><a href="optim-optimizer.html">Optimizer 기반 클래스</a><a href="optim-sgd.html">SGD</a><a href="optim-adam.html">Adam 계열</a><a href="optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="optim-classical.html">ASGD와 Rprop</a><a href="optim-modern.html">Adafactor와 Lion</a></div>
     </aside>
     <main id="main" class="content">
       <header class="page-header">
         <div class="eyebrow">Functional · mytorch.nn.functional</div>
         <h1>함수형 손실 연산</h1>
         <p>회귀·분류·분포·ranking·metric·segmentation 손실의 입력 shape와 reduction 규칙을 설명합니다.</p>
-        <div class="page-meta"><span>MyTorch 0.9.0</span><span>21개 API 항목</span><span>CUDA 전용</span></div>
+        <div class="page-meta"><span>MyTorch 0.12.0</span><span>21개 API 항목</span><span>CUDA 전용</span></div>
       </header>
       <section class="concept-panel">
         <div><h2>이 모듈을 사용할 때 알아둘 점</h2><ul><li>대부분의 손실은 reduction=&#x27;none&#x27;, &#x27;mean&#x27;, &#x27;sum&#x27;을 지원하며 KLDiv는 &#x27;batchmean&#x27;도 제공합니다.</li><li>BCEWithLogits, focal, log-softmax 기반 분류 손실은 큰 양수·음수 logits에서도 안정적인 식을 사용합니다.</li><li>target dtype과 shape 규칙은 손실마다 다르므로 각 API의 파라미터와 주의사항을 확인하십시오.</li></ul></div>
@@ -563,7 +563,7 @@ loss.backward()</code></pre></div>
         </section>
         <section>
           <h3>파라미터</h3>
-          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>target</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>정답 또는 목표 Tensor입니다. 손실별로 class index 또는 입력과 같은 shape의 값이 필요합니다.</td></tr><tr><td><code>alpha</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.25</code></td><td>LoRA 배율, focal 가중치 또는 optimizer 계수입니다. 문맥별 정의를 따릅니다.</td></tr><tr><td><code>gamma</code></td><td><code>&#x27;float&#x27;</code></td><td><code>2.0</code></td><td>focal loss에서 쉬운 예제의 기여를 줄이는 focusing 지수입니다.</td></tr><tr><td><code>reduction</code></td><td><code>&#x27;str&#x27;</code></td><td><code>&#x27;none&#x27;</code></td><td>손실 집계 방식입니다. 일반적으로 &#x27;none&#x27;, &#x27;mean&#x27;, &#x27;sum&#x27; 중 하나입니다.</td></tr></tbody></table></div>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>input</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>연산에 전달할 입력 Tensor입니다. 명시된 shape와 floating dtype 조건을 만족해야 합니다.</td></tr><tr><td><code>target</code></td><td><code>&#x27;Tensor&#x27;</code></td><td><code>필수</code></td><td>정답 또는 목표 Tensor입니다. 손실별로 class index 또는 입력과 같은 shape의 값이 필요합니다.</td></tr><tr><td><code>alpha</code></td><td><code>&#x27;float&#x27;</code></td><td><code>0.25</code></td><td>LoRA 배율, focal 가중치 또는 optimizer 계수입니다. 문맥별 정의를 따릅니다.</td></tr><tr><td><code>gamma</code></td><td><code>&#x27;float&#x27;</code></td><td><code>2.0</code></td><td>learning rate에 곱할 지수 감쇠 계수입니다.</td></tr><tr><td><code>reduction</code></td><td><code>&#x27;str&#x27;</code></td><td><code>&#x27;none&#x27;</code></td><td>손실 집계 방식입니다. 일반적으로 &#x27;none&#x27;, &#x27;mean&#x27;, &#x27;sum&#x27; 중 하나입니다.</td></tr></tbody></table></div>
         </section>
         <section class="api-grid">
           <div>
@@ -636,7 +636,7 @@ loss.backward()</code></pre></div>
     </main>
     <button class="back-to-top" type="button" aria-label="맨 위로">↑</button>
   </div>
-  <footer>MyTorch 0.9.0 · GPU-only educational framework · API는 현재 소스 시그니처에서 생성되었습니다.</footer>
+  <footer>MyTorch 0.12.0 · GPU-only educational framework · API는 현재 소스 시그니처에서 생성되었습니다.</footer>
   <script src="../assets/js/search-index.js"></script>
   <script src="../assets/js/docs.js"></script>
 </body>
