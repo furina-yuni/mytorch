@@ -43,10 +43,12 @@ class _PageParser(HTMLParser):
 
 
 def _defined_functions(module: object) -> set[str]:
+    exported = set(getattr(module, "__all__", ()))
     return {
         name
         for name, value in inspect.getmembers(module, inspect.isfunction)
-        if not name.startswith("_") and value.__module__ == module.__name__
+        if not name.startswith("_")
+        and (value.__module__ == module.__name__ or name in exported)
     }
 
 
@@ -61,12 +63,13 @@ def _resolve_local(source: Path, reference: str) -> tuple[Path, str]:
 
 def main() -> None:
     root = Path(__file__).resolve().parents[1]
-    docs = root / "docs"
+    source = root / "docs"
+    docs = root / "build" / "docs"
     catalog = json.loads(
-        (docs / "content" / "modules.json").read_text(encoding="utf-8")
+        (source / "content" / "modules.json").read_text(encoding="utf-8")
     )
     parameters = json.loads(
-        (docs / "content" / "parameters.json").read_text(encoding="utf-8")
+        (source / "content" / "parameters.json").read_text(encoding="utf-8")
     )
     expected_pages = {docs / "index.html"}
     expected_pages |= {

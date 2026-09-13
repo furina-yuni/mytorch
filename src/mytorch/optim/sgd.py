@@ -7,6 +7,7 @@ from typing import Any
 
 import cupy as cp
 
+from ._common import gradient_with_weight_decay, validate_common
 from .optimizer import Optimizer, require_real
 
 
@@ -34,14 +35,11 @@ class SGD(Optimizer):
         )
 
     def _validate_group(self, group: dict[str, Any]) -> None:
-        group["lr"] = require_real("lr", group["lr"], strict=True)
+        validate_common(group)
         group["momentum"] = require_real("momentum", group["momentum"])
         group["dampening"] = require_real("dampening", group["dampening"])
-        group["weight_decay"] = require_real("weight_decay", group["weight_decay"])
-        if not isinstance(group["nesterov"], bool) or not isinstance(
-            group["maximize"], bool
-        ):
-            raise TypeError("nesterov and maximize must be bools")
+        if not isinstance(group["nesterov"], bool):
+            raise TypeError("nesterov must be a bool")
         if group["nesterov"] and (group["momentum"] <= 0 or group["dampening"] != 0):
             raise ValueError(
                 "Nesterov momentum requires momentum > 0 and dampening = 0"
@@ -52,11 +50,7 @@ class SGD(Optimizer):
             if parameter.grad is None:
                 continue
             with cp.cuda.Device(parameter._device_index):
-                direction = parameter.grad._array
-                if group["maximize"]:
-                    direction = -direction
-                if group["weight_decay"]:
-                    direction = direction + group["weight_decay"] * parameter._array
+                direction = gradient_with_weight_decay(parameter, group)
                 momentum = group["momentum"]
                 if momentum:
                     state = self.state.setdefault(id(parameter), {})

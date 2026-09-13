@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import builtins
 import math
 from collections.abc import Sequence
 from typing import Any
 
 import cupy as cp
 import numpy as np
-from cupyx.scipy.special import logsumexp as cp_logsumexp
 
 from . import _autograd, _ops
 from ._device import format_device, parse_device
@@ -895,856 +893,139 @@ class Tensor:
         return log_softmax(self, dim=dim)
 
 
-def tensor(
-    data: Any,
-    *,
-    dtype: DTypeLike | None = None,
-    device: str | int = "cuda:0",
-    requires_grad: bool = False,
-) -> Tensor:
-    return Tensor(data, dtype=dtype, device=device, requires_grad=requires_grad)
-
-
-def empty(
-    *shape: ShapeLike,
-    dtype: DTypeLike = cp.float32,
-    device: str | int = "cuda:0",
-    requires_grad: bool = False,
-) -> Tensor:
-    return _create(cp.empty, shape, dtype, device, requires_grad)
-
-
-def zeros(
-    *shape: ShapeLike,
-    dtype: DTypeLike = cp.float32,
-    device: str | int = "cuda:0",
-    requires_grad: bool = False,
-) -> Tensor:
-    return _create(cp.zeros, shape, dtype, device, requires_grad)
-
-
-def ones(
-    *shape: ShapeLike,
-    dtype: DTypeLike = cp.float32,
-    device: str | int = "cuda:0",
-    requires_grad: bool = False,
-) -> Tensor:
-    return _create(cp.ones, shape, dtype, device, requires_grad)
-
-
-def full(
-    shape: ShapeLike,
-    fill_value: Any,
-    *,
-    dtype: DTypeLike = cp.float32,
-    device: str | int = "cuda:0",
-    requires_grad: bool = False,
-) -> Tensor:
-    return _create(
-        cp.full,
-        (shape,),
-        dtype,
-        device,
-        requires_grad,
-        fill_value=fill_value,
-    )
-
-
-def _create(
-    operation: Any,
-    shape: tuple[ShapeLike, ...],
-    dtype: DTypeLike,
-    device: str | int,
-    requires_grad: bool,
-    **kwargs: Any,
-) -> Tensor:
-    device_index = parse_device(device)
-    normalized = _shape_from_args(shape)
-    with cp.cuda.Device(device_index):
-        return Tensor._from_array(
-            operation(normalized, dtype=dtype, **kwargs),
-            requires_grad=requires_grad,
-        )
-
-
-def arange(
-    start: float,
-    end: float | None = None,
-    step: float = 1,
-    *,
-    dtype: DTypeLike = cp.float32,
-    device: str | int = "cuda:0",
-    requires_grad: bool = False,
-) -> Tensor:
-    device_index = parse_device(device)
-    if end is None:
-        start, end = 0, start
-    with cp.cuda.Device(device_index):
-        return Tensor._from_array(
-            cp.arange(start, end, step, dtype=dtype), requires_grad=requires_grad
-        )
-
-
-def linspace(
-    start: float,
-    end: float,
-    steps: int,
-    *,
-    dtype: DTypeLike = cp.float32,
-    device: str | int = "cuda:0",
-    requires_grad: bool = False,
-) -> Tensor:
-    device_index = parse_device(device)
-    with cp.cuda.Device(device_index):
-        return Tensor._from_array(
-            cp.linspace(start, end, steps, dtype=dtype),
-            requires_grad=requires_grad,
-        )
-
-
-def eye(
-    n: int,
-    m: int | None = None,
-    *,
-    dtype: DTypeLike = cp.float32,
-    device: str | int = "cuda:0",
-    requires_grad: bool = False,
-) -> Tensor:
-    device_index = parse_device(device)
-    with cp.cuda.Device(device_index):
-        return Tensor._from_array(
-            cp.eye(n, m, dtype=dtype), requires_grad=requires_grad
-        )
-
-
-def rand(
-    *shape: ShapeLike,
-    dtype: DTypeLike = cp.float32,
-    device: str | int = "cuda:0",
-    requires_grad: bool = False,
-) -> Tensor:
-    return _random_create(cp.random.random, shape, dtype, device, requires_grad)
-
-
-def randn(
-    *shape: ShapeLike,
-    dtype: DTypeLike = cp.float32,
-    device: str | int = "cuda:0",
-    requires_grad: bool = False,
-) -> Tensor:
-    return _random_create(
-        cp.random.standard_normal, shape, dtype, device, requires_grad
-    )
-
-
-def _random_create(
-    operation: Any,
-    shape: tuple[ShapeLike, ...],
-    dtype: DTypeLike,
-    device: str | int,
-    requires_grad: bool,
-) -> Tensor:
-    device_index = parse_device(device)
-    normalized = _shape_from_args(shape)
-    resolved_dtype = cp.dtype(dtype)
-    generation_dtype = cp.float32 if resolved_dtype == cp.float16 else resolved_dtype
-    with cp.cuda.Device(device_index):
-        return Tensor._from_array(
-            operation(normalized, dtype=generation_dtype).astype(
-                resolved_dtype, copy=False
-            ),
-            requires_grad=requires_grad,
-        )
-
-
-def _like(
-    operation: Any,
-    source: Tensor,
-    dtype: DTypeLike | None,
-    device: str | int | None,
-    requires_grad: bool,
-) -> Tensor:
-    if not isinstance(source, Tensor):
-        raise TypeError("like creation expects a Tensor")
-    device_index = source._device_index if device is None else parse_device(device)
-    resolved_dtype = source.dtype if dtype is None else dtype
-    with cp.cuda.Device(device_index):
-        return Tensor._from_array(
-            operation(source.shape, dtype=resolved_dtype),
-            requires_grad=requires_grad,
-        )
-
-
-def empty_like(
-    source: Tensor,
-    *,
-    dtype: DTypeLike | None = None,
-    device: str | int | None = None,
-    requires_grad: bool = False,
-) -> Tensor:
-    return _like(cp.empty, source, dtype, device, requires_grad)
-
-
-def zeros_like(
-    source: Tensor,
-    *,
-    dtype: DTypeLike | None = None,
-    device: str | int | None = None,
-    requires_grad: bool = False,
-) -> Tensor:
-    return _like(cp.zeros, source, dtype, device, requires_grad)
-
-
-def ones_like(
-    source: Tensor,
-    *,
-    dtype: DTypeLike | None = None,
-    device: str | int | None = None,
-    requires_grad: bool = False,
-) -> Tensor:
-    return _like(cp.ones, source, dtype, device, requires_grad)
-
-
-def manual_seed(seed: int) -> None:
-    if not isinstance(seed, int) or isinstance(seed, bool):
-        raise TypeError("seed must be an integer")
-    current_device = int(cp.cuda.Device().id)
-    try:
-        for device_index in range(int(cp.cuda.runtime.getDeviceCount())):
-            with cp.cuda.Device(device_index):
-                cp.random.seed(seed)
-    finally:
-        cp.cuda.Device(current_device).use()
-
-
-def exp(input: Tensor) -> Tensor:
-    return _ops.unary(
-        cp.exp,
-        input,
-        backward=lambda grad, result, _arrays: (grad * result,),
-        name="exp",
-    )
-
-
-def log(input: Tensor) -> Tensor:
-    return _ops.unary(
-        cp.log,
-        input,
-        backward=lambda grad, _result, arrays: (grad / arrays[0],),
-        name="log",
-    )
-
-
-def log1p(input: Tensor) -> Tensor:
-    return _ops.unary(
-        cp.log1p,
-        input,
-        backward=lambda grad, _result, arrays: (grad / (1 + arrays[0]),),
-        name="log1p",
-    )
-
-
-def rsqrt(input: Tensor) -> Tensor:
-    return _ops.unary(
-        cp.reciprocal,
-        sqrt(input),
-        backward=lambda gradient, _result, arrays: (-gradient / (arrays[0] ** 2),),
-        name="reciprocal_sqrt",
-    )
-
-
-def round(input: Tensor) -> Tensor:
-    """Round values; like PyTorch, its mathematical gradient is zero."""
-    return _ops.unary(
-        cp.round,
-        input,
-        backward=lambda gradient, _result, arrays: (cp.zeros_like(arrays[0]),),
-        name="round",
-    )
-
-
-def contiguous(input: Tensor) -> Tensor:
-    return _ops.apply(
-        cp.ascontiguousarray,
-        input,
-        backward=lambda gradient, _result, _arrays: (gradient,),
-        name="contiguous",
-    )
-
-
-def expand(input: Tensor, *shape: ShapeLike) -> Tensor:
-    if len(shape) == 1 and isinstance(shape[0], (tuple, list)):
-        target = tuple(shape[0])
-    else:
-        target = tuple(shape)
-    if not all(
-        isinstance(value, int) and not isinstance(value, bool) for value in target
-    ):
-        raise TypeError("expand dimensions must be integers")
-    if len(target) < input.ndim:
-        raise ValueError("expand cannot remove Tensor dimensions")
-    padded = (1,) * (len(target) - input.ndim) + input.shape
-    resolved = tuple(
-        source if requested == -1 else requested
-        for source, requested in zip(padded, target, strict=True)
-    )
-    if any(value < 0 for value in resolved):
-        raise ValueError("expand dimensions must be non-negative or -1")
-    for source, requested in zip(padded, resolved, strict=True):
-        if source != requested and source != 1:
-            raise ValueError(f"cannot expand shape {input.shape} to {resolved}")
-    return _ops.apply(
-        lambda array: cp.broadcast_to(array.reshape(padded), resolved),
-        input,
-        backward=lambda gradient, _result, arrays: (
-            _autograd.sum_to_shape(gradient, padded).reshape(arrays[0].shape),
-        ),
-        name="expand",
-    )
-
-
-def repeat(input: Tensor, *repeats: ShapeLike) -> Tensor:
-    normalized = _shape_from_args(repeats)
-    if len(normalized) < input.ndim:
-        raise ValueError("repeat expects at least as many values as Tensor dimensions")
-    if any(value < 0 for value in normalized):
-        raise ValueError("repeat counts must be non-negative")
-    padded_shape = (1,) * (len(normalized) - input.ndim) + input.shape
-
-    def backward(gradient, _result, arrays):
-        view_shape: list[int] = []
-        reduction_axes: list[int] = []
-        for axis, (count, size) in enumerate(
-            zip(normalized, padded_shape, strict=True)
-        ):
-            view_shape.extend((count, size))
-            reduction_axes.append(axis * 2)
-        result = gradient.reshape(view_shape).sum(axis=tuple(reduction_axes))
-        return (result.reshape(arrays[0].shape),)
-
-    return _ops.apply(
-        lambda array: cp.tile(array.reshape(padded_shape), normalized),
-        input,
-        backward=backward,
-        name="repeat",
-    )
-
-
-def pad(
-    input: Tensor,
-    pad: Sequence[int],
-    mode: str = "constant",
-    value: float = 0.0,
-) -> Tensor:
-    if mode != "constant":
-        raise ValueError("only constant padding is supported")
-    if not isinstance(pad, Sequence) or len(pad) % 2 or len(pad) > 2 * input.ndim:
-        raise ValueError("pad must contain pairs for trailing dimensions")
-    if not all(isinstance(item, int) and item >= 0 for item in pad):
-        raise ValueError("padding values must be non-negative integers")
-    pairs = [(0, 0)] * (input.ndim - len(pad) // 2)
-    trailing = list(zip(pad[::2], pad[1::2], strict=True))[::-1]
-    pairs.extend(trailing)
-    slices = tuple(
-        slice(before, before + size)
-        for (before, _), size in zip(pairs, input.shape, strict=True)
-    )
-    return _ops.apply(
-        lambda array: cp.pad(
-            array, tuple(pairs), mode="constant", constant_values=value
-        ),
-        input,
-        backward=lambda gradient, _result, _arrays: (gradient[slices],),
-        name="pad",
-    )
-
-
-def masked_fill(input: Tensor, mask: Tensor, value: Any) -> Tensor:
-    if not isinstance(mask, Tensor) or mask.dtype != cp.bool_:
-        raise TypeError("masked_fill mask must be a boolean Tensor")
-    return where(mask, value, input)
-
-
-def _gather_coordinates(index: cp.ndarray, axis: int) -> tuple[cp.ndarray, ...]:
-    coordinates = []
-    for dim, size in enumerate(index.shape):
-        if dim == axis:
-            coordinates.append(index)
-        else:
-            shape = [1] * index.ndim
-            shape[dim] = size
-            coordinates.append(cp.arange(size).reshape(shape))
-    return tuple(coordinates)
-
-
-def gather(input: Tensor, dim: int, index: Tensor) -> Tensor:
-    if not isinstance(index, Tensor) or index.dtype.kind not in "iu":
-        raise TypeError("gather index must be an integer Tensor")
-    axis = _ops.normalize_dims(dim, input.ndim)
-    assert isinstance(axis, int)
-    if index.ndim != input.ndim:
-        raise ValueError(
-            "gather input and index must have the same number of dimensions"
-        )
-    for current, (index_size, input_size) in enumerate(
-        zip(index.shape, input.shape, strict=True)
-    ):
-        if current != axis and index_size > input_size:
-            raise ValueError("gather index is too large for a non-gather dimension")
-    if input._device_index != index._device_index:
-        raise ValueError("gather input and index must be on the same device")
-
-    def backward(gradient, _result, arrays):
-        source, indices = arrays
-        result = cp.zeros_like(source)
-        cp.add.at(result, _gather_coordinates(indices, axis), gradient)
-        return result, None
-
-    return _ops.apply(
-        lambda array, indices: cp.take_along_axis(array, indices, axis=axis),
-        input,
-        index,
-        backward=backward,
-        name="gather",
-    )
-
-
-def scatter_add(input: Tensor, dim: int, index: Tensor, source: Tensor) -> Tensor:
-    if not isinstance(index, Tensor) or index.dtype.kind not in "iu":
-        raise TypeError("scatter_add index must be an integer Tensor")
-    if not isinstance(source, Tensor):
-        raise TypeError("scatter_add source must be a Tensor")
-    axis = _ops.normalize_dims(dim, input.ndim)
-    assert isinstance(axis, int)
-    if index.shape != source.shape or index.ndim != input.ndim:
-        raise ValueError(
-            "scatter_add index and source must have matching input-rank shapes"
-        )
-
-    def forward(base, indices, values):
-        result = base.copy()
-        cp.add.at(result, _gather_coordinates(indices, axis), values)
-        return result
-
-    def backward(gradient, _result, arrays):
-        _, indices, _ = arrays
-        return gradient, None, cp.take_along_axis(gradient, indices, axis=axis)
-
-    return _ops.apply(
-        forward,
-        input,
-        index,
-        source,
-        backward=backward,
-        name="scatter_add",
-    )
-
-
-def topk(
-    input: Tensor,
-    k: int,
-    dim: int = -1,
-    largest: bool = True,
-    sorted: bool = True,
-) -> tuple[Tensor, Tensor]:
-    if not isinstance(k, int) or isinstance(k, bool) or k <= 0:
-        raise ValueError("k must be a positive integer")
-    if not isinstance(largest, bool) or not isinstance(sorted, bool):
-        raise TypeError("largest and sorted must be bool values")
-    axis = _ops.normalize_dims(dim, input.ndim)
-    assert isinstance(axis, int)
-    if k > input.shape[axis]:
-        raise ValueError("k cannot exceed the selected dimension")
-    array = input._array
-    partition = cp.argpartition(-array if largest else array, k - 1, axis=axis)
-    selection = [slice(None)] * input.ndim
-    selection[axis] = slice(0, k)
-    indices_array = partition[tuple(selection)]
-    values_array = cp.take_along_axis(array, indices_array, axis=axis)
-    if sorted:
-        order = cp.argsort(-values_array if largest else values_array, axis=axis)
-        indices_array = cp.take_along_axis(indices_array, order, axis=axis)
-        values_array = cp.take_along_axis(values_array, order, axis=axis)
-    indices = Tensor._from_array(indices_array.astype(cp.int64, copy=False))
-    if not input.requires_grad or not _autograd.is_grad_enabled():
-        return Tensor._from_array(values_array), indices
-
-    def backward(gradient):
-        result = cp.zeros_like(array)
-        cp.add.at(result, _gather_coordinates(indices_array, axis), gradient)
-        return (result,)
-
-    node = _autograd.Node(
-        name="topk",
-        parents=(input,),
-        backward_fn=backward,
-        versions=(input._version,),
-    )
-    return Tensor._from_array(values_array, requires_grad=True, grad_fn=node), indices
-
-
-def logaddexp(left: Tensor, right: Any) -> Tensor:
-    def backward(gradient, _result, arrays):
-        first, second = arrays
-        first_weight = 1 / (1 + cp.exp(second - first))
-        return gradient * first_weight, gradient * (1 - first_weight)
-
-    return _ops.binary(cp.logaddexp, left, right, backward=backward, name="logaddexp")
-
-
-def logsumexp(
-    input: Tensor,
-    dim: int | tuple[int, ...],
-    keepdim: bool = False,
-) -> Tensor:
-    axes = _ops.normalize_dims(dim, input.ndim)
-    if axes is None:
-        raise TypeError("logsumexp dim must be an int or tuple of ints")
-
-    def backward(gradient, result, arrays):
-        source = arrays[0]
-        expanded_gradient = _expand_reduction_gradient(
-            gradient, source.shape, axes, keepdim
-        )
-        expanded_result = _expand_reduction_gradient(
-            result, source.shape, axes, keepdim
-        )
-        return (expanded_gradient * cp.exp(source - expanded_result),)
-
-    return _ops.apply(
-        lambda array: cp_logsumexp(array, axis=axes, keepdims=keepdim),
-        input,
-        backward=backward,
-        name="logsumexp",
-    )
-
-
-def sqrt(input: Tensor) -> Tensor:
-    return _ops.unary(
-        cp.sqrt,
-        input,
-        backward=lambda grad, result, _arrays: (grad * 0.5 / result,),
-        name="sqrt",
-    )
-
-
-def square(input: Tensor) -> Tensor:
-    return _ops.unary(
-        cp.square,
-        input,
-        backward=lambda grad, _result, arrays: (grad * 2 * arrays[0],),
-        name="square",
-    )
-
-
-def sin(input: Tensor) -> Tensor:
-    return _ops.unary(
-        cp.sin,
-        input,
-        backward=lambda grad, _result, arrays: (grad * cp.cos(arrays[0]),),
-        name="sin",
-    )
-
-
-def cos(input: Tensor) -> Tensor:
-    return _ops.unary(
-        cp.cos,
-        input,
-        backward=lambda grad, _result, arrays: (-grad * cp.sin(arrays[0]),),
-        name="cos",
-    )
-
-
-def sign(input: Tensor) -> Tensor:
-    return _ops.unary(
-        cp.sign,
-        input,
-        backward=lambda grad, _result, arrays: (cp.zeros_like(arrays[0]),),
-        name="sign",
-    )
-
-
-def where(condition: Tensor, input: Any, other: Any) -> Tensor:
-    if not isinstance(condition, Tensor) or condition.dtype.kind != "b":
-        raise TypeError("where condition must be a boolean Tensor")
-
-    def backward(gradient, _result, arrays):
-        mask = arrays[0]
-        return None, cp.where(mask, gradient, 0), cp.where(mask, 0, gradient)
-
-    return _ops.apply(
-        cp.where,
-        condition,
-        input,
-        other,
-        backward=backward,
-        name="where",
-    )
-
-
-def norm(
-    input: Tensor,
-    p: float = 2.0,
-    dim: int | tuple[int, ...] | None = None,
-    keepdim: bool = False,
-) -> Tensor:
-    _ops.require_floating(input, "norm")
-    if not isinstance(p, (int, float)) or isinstance(p, bool) or p < 1:
-        raise ValueError("p must be a real number greater than or equal to 1")
-    axes = _ops.normalize_dims(dim, input.ndim)
-
-    def forward(array):
-        return cp.sum(cp.abs(array) ** p, axis=axes, keepdims=keepdim) ** (1.0 / p)
-
-    def backward(gradient, result, arrays):
-        source = arrays[0]
-        expanded_gradient = _expand_reduction_gradient(
-            gradient, source.shape, axes, keepdim
-        )
-        expanded_result = _expand_reduction_gradient(
-            result, source.shape, axes, keepdim
-        )
-        safe_norm = cp.where(expanded_result == 0, 1, expanded_result)
-        derivative = cp.sign(source) * cp.abs(source) ** (p - 1) * safe_norm ** (1 - p)
-        derivative = cp.where(expanded_result == 0, 0, derivative)
-        return (expanded_gradient * derivative,)
-
-    return _ops.apply(forward, input, backward=backward, name="norm")
-
-
-def normalize(
-    input: Tensor,
-    p: float = 2.0,
-    dim: int = 1,
-    eps: float = 1e-12,
-) -> Tensor:
-    if not isinstance(eps, (int, float)) or isinstance(eps, bool) or eps <= 0:
-        raise ValueError("eps must be a positive real number")
-    denominator = maximum(norm(input, p=p, dim=dim, keepdim=True), eps)
-    return input / denominator
-
-
-def split(
-    input: Tensor,
-    split_size_or_sections: int | Sequence[int],
-    dim: int = 0,
-) -> tuple[Tensor, ...]:
-    axis = _ops.normalize_dims(dim, input.ndim)
-    assert isinstance(axis, int)
-    length = input.shape[axis]
-    if isinstance(split_size_or_sections, int) and not isinstance(
-        split_size_or_sections, bool
-    ):
-        if split_size_or_sections <= 0:
-            raise ValueError("split size must be positive")
-        sizes = [split_size_or_sections] * (length // split_size_or_sections)
-        if length % split_size_or_sections:
-            sizes.append(length % split_size_or_sections)
-    elif isinstance(split_size_or_sections, Sequence):
-        sizes = list(split_size_or_sections)
-        if not sizes or not all(
-            isinstance(size, int) and not isinstance(size, bool) and size >= 0
-            for size in sizes
-        ):
-            raise ValueError("split sections must be non-negative integers")
-        if builtins.sum(sizes) != length:
-            raise ValueError("split sections must sum to the selected dimension")
-    else:
-        raise TypeError("split size must be an int or sequence of ints")
-    outputs = []
-    start = 0
-    for size in sizes:
-        index = [slice(None)] * input.ndim
-        index[axis] = slice(start, start + size)
-        outputs.append(input[tuple(index)])
-        start += size
-    return tuple(outputs)
-
-
-def chunk(input: Tensor, chunks: int, dim: int = 0) -> tuple[Tensor, ...]:
-    if not isinstance(chunks, int) or isinstance(chunks, bool) or chunks <= 0:
-        raise ValueError("chunks must be a positive integer")
-    axis = _ops.normalize_dims(dim, input.ndim)
-    assert isinstance(axis, int)
-    length = input.shape[axis]
-    if length == 0:
-        return split(input, [0] * chunks, dim=axis)
-    split_size = math.ceil(length / chunks)
-    return split(input, split_size, dim=axis)
-
-
-def maximum(left: Tensor, right: Any) -> Tensor:
-    def backward(gradient, _result, arrays):
-        first, second = arrays
-        return (
-            gradient * (first > second) + gradient * 0.5 * (first == second),
-            gradient * (second > first) + gradient * 0.5 * (first == second),
-        )
-
-    return _ops.binary(cp.maximum, left, right, backward=backward, name="maximum")
-
-
-def minimum(left: Tensor, right: Any) -> Tensor:
-    def backward(gradient, _result, arrays):
-        first, second = arrays
-        return (
-            gradient * (first < second) + gradient * 0.5 * (first == second),
-            gradient * (second < first) + gradient * 0.5 * (first == second),
-        )
-
-    return _ops.binary(cp.minimum, left, right, backward=backward, name="minimum")
-
-
-def clip(input: Tensor, minimum: Any, maximum: Any) -> Tensor:
-    for bound in (minimum, maximum):
-        if isinstance(bound, Tensor) and bound.requires_grad:
-            raise ValueError("clip bounds cannot require gradients")
-
-    def backward(gradient, _result, arrays):
-        source, lower, upper = arrays
-        return gradient * ((source >= lower) & (source <= upper)), None, None
-
-    return _ops.apply(cp.clip, input, minimum, maximum, backward=backward, name="clip")
-
-
-def abs(input: Tensor) -> Tensor:
-    return input.__abs__()
-
-
-def sum(
-    input: Tensor,
-    dim: int | tuple[int, ...] | None = None,
-    keepdim: bool = False,
-) -> Tensor:
-    return input.sum(dim=dim, keepdim=keepdim)
-
-
-def mean(
-    input: Tensor,
-    dim: int | tuple[int, ...] | None = None,
-    keepdim: bool = False,
-) -> Tensor:
-    return input.mean(dim=dim, keepdim=keepdim)
-
-
-def prod(
-    input: Tensor,
-    dim: int | tuple[int, ...] | None = None,
-    keepdim: bool = False,
-) -> Tensor:
-    return input.prod(dim=dim, keepdim=keepdim)
-
-
-def max(
-    input: Tensor,
-    dim: int | tuple[int, ...] | None = None,
-    keepdim: bool = False,
-) -> Tensor:
-    return input.max(dim=dim, keepdim=keepdim)
-
-
-def min(
-    input: Tensor,
-    dim: int | tuple[int, ...] | None = None,
-    keepdim: bool = False,
-) -> Tensor:
-    return input.min(dim=dim, keepdim=keepdim)
-
-
-def var(
-    input: Tensor,
-    dim: int | tuple[int, ...] | None = None,
-    keepdim: bool = False,
-    *,
-    correction: int = 0,
-) -> Tensor:
-    return input.var(dim=dim, keepdim=keepdim, correction=correction)
-
-
-def std(
-    input: Tensor,
-    dim: int | tuple[int, ...] | None = None,
-    keepdim: bool = False,
-    *,
-    correction: int = 0,
-) -> Tensor:
-    return input.std(dim=dim, keepdim=keepdim, correction=correction)
-
-
-def argmax(
-    input: Tensor,
-    dim: int | tuple[int, ...] | None = None,
-    keepdim: bool = False,
-) -> Tensor:
-    return input.argmax(dim=dim, keepdim=keepdim)
-
-
-def argmin(
-    input: Tensor,
-    dim: int | tuple[int, ...] | None = None,
-    keepdim: bool = False,
-) -> Tensor:
-    return input.argmin(dim=dim, keepdim=keepdim)
-
-
-def matmul(left: Tensor, right: Tensor) -> Tensor:
-    return _ops.matrix_binary(
-        "matmul", cp.matmul, left, right, backward=_matmul_backward
-    )
-
-
-def dot(left: Tensor, right: Tensor) -> Tensor:
-    return _ops.matrix_binary(
-        "dot",
-        cp.dot,
-        left,
-        right,
-        required_ndim=1,
-        backward=_matmul_backward,
-    )
-
-
-def mm(left: Tensor, right: Tensor) -> Tensor:
-    return _ops.matrix_binary(
-        "mm",
-        cp.matmul,
-        left,
-        right,
-        required_ndim=2,
-        backward=_matmul_backward,
-    )
-
-
-def bmm(left: Tensor, right: Tensor) -> Tensor:
-    return _ops.matrix_binary(
-        "bmm",
-        cp.matmul,
-        left,
-        right,
-        required_ndim=3,
-        matching_batch=True,
-        backward=_matmul_backward,
-    )
-
-
-def outer(left: Tensor, right: Tensor) -> Tensor:
-    def backward(gradient, _result, arrays):
-        first, second = arrays
-        return gradient @ second, first @ gradient
-
-    return _ops.matrix_binary(
-        "outer",
-        cp.outer,
-        left,
-        right,
-        required_ndim=1,
-        backward=backward,
-    )
-
-
-def cat(tensors: Sequence[Tensor], dim: int = 0) -> Tensor:
-    return _ops.concatenate(tensors, dim=dim)
-
-
-def stack(tensors: Sequence[Tensor], dim: int = 0) -> Tensor:
-    return _ops.stack(tensors, dim=dim)
+from ._tensor import creation as _creation  # noqa: E402
+from ._tensor import elementwise as _elementwise  # noqa: E402
+from ._tensor import linalg as _linalg  # noqa: E402
+from ._tensor import reductions as _reductions  # noqa: E402
+from ._tensor import shape as _shape  # noqa: E402
+
+tensor = _creation.tensor
+empty = _creation.empty
+zeros = _creation.zeros
+ones = _creation.ones
+full = _creation.full
+arange = _creation.arange
+linspace = _creation.linspace
+eye = _creation.eye
+rand = _creation.rand
+randn = _creation.randn
+empty_like = _creation.empty_like
+zeros_like = _creation.zeros_like
+ones_like = _creation.ones_like
+manual_seed = _creation.manual_seed
+
+exp = _elementwise.exp
+log = _elementwise.log
+log1p = _elementwise.log1p
+rsqrt = _elementwise.rsqrt
+round = _elementwise.round
+sqrt = _elementwise.sqrt
+square = _elementwise.square
+sin = _elementwise.sin
+cos = _elementwise.cos
+sign = _elementwise.sign
+where = _elementwise.where
+maximum = _elementwise.maximum
+minimum = _elementwise.minimum
+clip = _elementwise.clip
+abs = _elementwise.abs
+
+contiguous = _shape.contiguous
+expand = _shape.expand
+repeat = _shape.repeat
+pad = _shape.pad
+masked_fill = _shape.masked_fill
+gather = _shape.gather
+scatter_add = _shape.scatter_add
+topk = _shape.topk
+split = _shape.split
+chunk = _shape.chunk
+cat = _shape.cat
+stack = _shape.stack
+
+logaddexp = _reductions.logaddexp
+logsumexp = _reductions.logsumexp
+norm = _reductions.norm
+normalize = _reductions.normalize
+sum = _reductions.sum
+mean = _reductions.mean
+prod = _reductions.prod
+max = _reductions.max
+min = _reductions.min
+var = _reductions.var
+std = _reductions.std
+argmax = _reductions.argmax
+argmin = _reductions.argmin
+
+matmul = _linalg.matmul
+dot = _linalg.dot
+mm = _linalg.mm
+bmm = _linalg.bmm
+outer = _linalg.outer
+
+__all__ = [
+    "Tensor",
+    "abs",
+    "arange",
+    "argmax",
+    "argmin",
+    "bmm",
+    "cat",
+    "chunk",
+    "clip",
+    "contiguous",
+    "cos",
+    "dot",
+    "empty",
+    "empty_like",
+    "exp",
+    "expand",
+    "eye",
+    "full",
+    "gather",
+    "linspace",
+    "log",
+    "log1p",
+    "logaddexp",
+    "logsumexp",
+    "manual_seed",
+    "masked_fill",
+    "matmul",
+    "max",
+    "maximum",
+    "mean",
+    "min",
+    "minimum",
+    "mm",
+    "norm",
+    "normalize",
+    "ones",
+    "ones_like",
+    "outer",
+    "pad",
+    "prod",
+    "rand",
+    "randn",
+    "repeat",
+    "round",
+    "rsqrt",
+    "scatter_add",
+    "sign",
+    "sin",
+    "split",
+    "sqrt",
+    "square",
+    "stack",
+    "std",
+    "sum",
+    "tensor",
+    "topk",
+    "var",
+    "where",
+    "zeros",
+    "zeros_like",
+]
+
+for _public_name in __all__:
+    globals()[_public_name].__module__ = __name__
+del _public_name

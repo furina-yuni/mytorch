@@ -8,21 +8,9 @@ from typing import Any
 
 import cupy as cp
 
-from .optimizer import Optimizer, require_betas, require_real
-
-
-def _validate_adam(group: dict[str, Any]) -> None:
-    group["lr"] = require_real("lr", group["lr"], strict=True)
-    group["betas"] = require_betas(group["betas"])
-    group["eps"] = require_real("eps", group["eps"], strict=True)
-    group["weight_decay"] = require_real("weight_decay", group["weight_decay"])
-    if not isinstance(group["maximize"], bool):
-        raise TypeError("maximize must be a bool")
-
-
-def _grad(parameter, maximize: bool):
-    gradient = parameter.grad._array
-    return -gradient if maximize else gradient
+from ._common import gradient as prepare_gradient
+from ._common import validate_adam
+from .optimizer import Optimizer, require_real
 
 
 class Adam(Optimizer):
@@ -49,7 +37,7 @@ class Adam(Optimizer):
         )
 
     def _validate_group(self, group: dict[str, Any]) -> None:
-        _validate_adam(group)
+        validate_adam(group)
         if not isinstance(group["amsgrad"], bool):
             raise TypeError("amsgrad must be a bool")
 
@@ -61,7 +49,7 @@ class Adam(Optimizer):
             if parameter.grad is None:
                 continue
             with cp.cuda.Device(parameter._device_index):
-                gradient = _grad(parameter, group["maximize"])
+                gradient = prepare_gradient(parameter, group["maximize"])
                 if group["weight_decay"] and not self._decoupled_weight_decay():
                     gradient = gradient + group["weight_decay"] * parameter._array
                 state = self.state.setdefault(id(parameter), {})
@@ -136,14 +124,14 @@ class Adamax(Optimizer):
         )
 
     def _validate_group(self, group: dict[str, Any]) -> None:
-        _validate_adam(group)
+        validate_adam(group)
 
     def step(self) -> None:
         for parameter, group in self._parameter_groups():
             if parameter.grad is None:
                 continue
             with cp.cuda.Device(parameter._device_index):
-                gradient = _grad(parameter, group["maximize"])
+                gradient = prepare_gradient(parameter, group["maximize"])
                 if group["weight_decay"]:
                     gradient = gradient + group["weight_decay"] * parameter._array
                 state = self.state.setdefault(id(parameter), {})
@@ -194,7 +182,7 @@ class NAdam(Optimizer):
         )
 
     def _validate_group(self, group: dict[str, Any]) -> None:
-        _validate_adam(group)
+        validate_adam(group)
         group["momentum_decay"] = require_real(
             "momentum_decay", group["momentum_decay"]
         )
@@ -206,7 +194,7 @@ class NAdam(Optimizer):
             if parameter.grad is None:
                 continue
             with cp.cuda.Device(parameter._device_index):
-                gradient = _grad(parameter, group["maximize"])
+                gradient = prepare_gradient(parameter, group["maximize"])
                 if group["weight_decay"] and not group["decoupled_weight_decay"]:
                     gradient = gradient + group["weight_decay"] * parameter._array
                 state = self.state.setdefault(id(parameter), {})
@@ -262,7 +250,7 @@ class RAdam(Optimizer):
         )
 
     def _validate_group(self, group: dict[str, Any]) -> None:
-        _validate_adam(group)
+        validate_adam(group)
         if not isinstance(group["decoupled_weight_decay"], bool):
             raise TypeError("decoupled_weight_decay must be a bool")
 
@@ -271,7 +259,7 @@ class RAdam(Optimizer):
             if parameter.grad is None:
                 continue
             with cp.cuda.Device(parameter._device_index):
-                gradient = _grad(parameter, group["maximize"])
+                gradient = prepare_gradient(parameter, group["maximize"])
                 if group["weight_decay"] and not group["decoupled_weight_decay"]:
                     gradient = gradient + group["weight_decay"] * parameter._array
                 state = self.state.setdefault(id(parameter), {})

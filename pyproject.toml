@@ -23,6 +23,14 @@ markers = [
   "gpu: requires a working NVIDIA CUDA GPU",
 ]
 
+[tool.coverage.run]
+branch = true
+source = ["mytorch"]
+
+[tool.coverage.report]
+fail_under = 77
+show_missing = true
+
 [tool.ruff]
 line-length = 88
 target-version = "py312"

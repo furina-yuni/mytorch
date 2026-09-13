@@ -7,23 +7,8 @@ from typing import Any
 
 import cupy as cp
 
+from ._common import gradient_with_weight_decay, validate_common
 from .optimizer import Optimizer, require_real
-
-
-def _validate_common(group: dict[str, Any]) -> None:
-    group["lr"] = require_real("lr", group["lr"], strict=True)
-    group["weight_decay"] = require_real("weight_decay", group["weight_decay"])
-    if not isinstance(group["maximize"], bool):
-        raise TypeError("maximize must be a bool")
-
-
-def _gradient(parameter, group):
-    gradient = parameter.grad._array
-    if group["maximize"]:
-        gradient = -gradient
-    if group["weight_decay"]:
-        gradient = gradient + group["weight_decay"] * parameter._array
-    return gradient
 
 
 class Adagrad(Optimizer):
@@ -50,7 +35,7 @@ class Adagrad(Optimizer):
         )
 
     def _validate_group(self, group):
-        _validate_common(group)
+        validate_common(group)
         group["lr_decay"] = require_real("lr_decay", group["lr_decay"])
         group["initial_accumulator_value"] = require_real(
             "initial_accumulator_value", group["initial_accumulator_value"]
@@ -62,7 +47,7 @@ class Adagrad(Optimizer):
             if parameter.grad is None:
                 continue
             with cp.cuda.Device(parameter._device_index):
-                gradient = _gradient(parameter, group)
+                gradient = gradient_with_weight_decay(parameter, group)
                 state = self.state.setdefault(id(parameter), {})
                 if not state:
                     state["step"] = 0
@@ -105,7 +90,7 @@ class RMSprop(Optimizer):
         )
 
     def _validate_group(self, group):
-        _validate_common(group)
+        validate_common(group)
         group["alpha"] = require_real("alpha", group["alpha"])
         if group["alpha"] >= 1:
             raise ValueError("alpha must be in [0, 1)")
@@ -119,7 +104,7 @@ class RMSprop(Optimizer):
             if parameter.grad is None:
                 continue
             with cp.cuda.Device(parameter._device_index):
-                gradient = _gradient(parameter, group)
+                gradient = gradient_with_weight_decay(parameter, group)
                 state = self.state.setdefault(id(parameter), {})
                 square_avg = state.setdefault(
                     "square_avg", cp.zeros_like(parameter._array)
@@ -168,7 +153,7 @@ class Adadelta(Optimizer):
         )
 
     def _validate_group(self, group):
-        _validate_common(group)
+        validate_common(group)
         group["rho"] = require_real("rho", group["rho"])
         if group["rho"] >= 1:
             raise ValueError("rho must be in [0, 1)")
@@ -179,7 +164,7 @@ class Adadelta(Optimizer):
             if parameter.grad is None:
                 continue
             with cp.cuda.Device(parameter._device_index):
-                gradient = _gradient(parameter, group)
+                gradient = gradient_with_weight_decay(parameter, group)
                 state = self.state.setdefault(id(parameter), {})
                 square_avg = state.setdefault(
                     "square_avg", cp.zeros_like(parameter._array)

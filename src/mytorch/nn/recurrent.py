@@ -9,8 +9,10 @@ import cupy as cp
 
 from mytorch.tensor import Tensor, rand, stack, zeros
 
-from . import functional as F
-from .modules import Module, ModuleList, Parameter
+from ._functional import activations as A
+from ._functional import layers as L
+from ._modules.base import Module, Parameter
+from ._modules.containers import ModuleList
 
 
 class _RNNCellBase(Module):
@@ -53,8 +55,8 @@ class _RNNCellBase(Module):
         return input, hidden, unbatched
 
     def _affine(self, input: Tensor, hidden: Tensor) -> Tensor:
-        result = F.linear(input, self.weight_ih, self.bias_ih)
-        return result + F.linear(hidden, self.weight_hh, self.bias_hh)
+        result = L.linear(input, self.weight_ih, self.bias_ih)
+        return result + L.linear(hidden, self.weight_hh, self.bias_hh)
 
 
 class RNNCell(_RNNCellBase):
@@ -73,7 +75,7 @@ class RNNCell(_RNNCellBase):
             )
         input, hx, unbatched = self._validate(input, hx)
         result = self._affine(input, hx)
-        result = F.tanh(result) if self.nonlinearity == "tanh" else F.relu(result)
+        result = A.tanh(result) if self.nonlinearity == "tanh" else A.relu(result)
         return result.squeeze(0) if unbatched else result
 
 
@@ -98,12 +100,12 @@ class LSTMCell(_RNNCellBase):
         input_gate, forget_gate, candidate, output_gate = self._affine(
             input, hidden
         ).chunk(4, dim=-1)
-        input_gate = F.sigmoid(input_gate)
-        forget_gate = F.sigmoid(forget_gate)
-        candidate = F.tanh(candidate)
-        output_gate = F.sigmoid(output_gate)
+        input_gate = A.sigmoid(input_gate)
+        forget_gate = A.sigmoid(forget_gate)
+        candidate = A.tanh(candidate)
+        output_gate = A.sigmoid(output_gate)
         next_cell = forget_gate * cell + input_gate * candidate
-        next_hidden = output_gate * F.tanh(next_cell)
+        next_hidden = output_gate * A.tanh(next_cell)
         if unbatched:
             return next_hidden.squeeze(0), next_cell.squeeze(0)
         return next_hidden, next_cell
@@ -120,11 +122,11 @@ class GRUCell(_RNNCellBase):
                 device=input.device,
             )
         input, hx, unbatched = self._validate(input, hx)
-        input_gates = F.linear(input, self.weight_ih, self.bias_ih).chunk(3, -1)
-        hidden_gates = F.linear(hx, self.weight_hh, self.bias_hh).chunk(3, -1)
-        reset = F.sigmoid(input_gates[0] + hidden_gates[0])
-        update = F.sigmoid(input_gates[1] + hidden_gates[1])
-        candidate = F.tanh(input_gates[2] + reset * hidden_gates[2])
+        input_gates = L.linear(input, self.weight_ih, self.bias_ih).chunk(3, -1)
+        hidden_gates = L.linear(hx, self.weight_hh, self.bias_hh).chunk(3, -1)
+        reset = A.sigmoid(input_gates[0] + hidden_gates[0])
+        update = A.sigmoid(input_gates[1] + hidden_gates[1])
+        candidate = A.tanh(input_gates[2] + reset * hidden_gates[2])
         result = (1 - update) * candidate + update * hx
         return result.squeeze(0) if unbatched else result
 
@@ -223,7 +225,7 @@ class _RNNBase(Module):
                 else _concat_features(direction_outputs)
             )
             if layer + 1 < self.num_layers and self.dropout:
-                layer_input = F.dropout(layer_input, self.dropout, self.training)
+                layer_input = L.dropout(layer_input, self.dropout, self.training)
         output = layer_input.transpose(0, 1) if self.batch_first else layer_input
         return output, stack(final)
 
@@ -293,6 +295,6 @@ class LSTM(_RNNBase):
                 else _concat_features(direction_outputs)
             )
             if layer + 1 < self.num_layers and self.dropout:
-                layer_input = F.dropout(layer_input, self.dropout, self.training)
+                layer_input = L.dropout(layer_input, self.dropout, self.training)
         output = layer_input.transpose(0, 1) if self.batch_first else layer_input
         return output, (stack(final_hidden), stack(final_cell))

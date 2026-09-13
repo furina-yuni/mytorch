@@ -8,6 +8,7 @@ import importlib
 import inspect
 import json
 import re
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -15,9 +16,10 @@ from typing import Any
 import mytorch as mt
 
 ROOT = Path(__file__).resolve().parents[1]
-DOCS = ROOT / "docs"
-CONTENT = DOCS / "content"
-API_DIR = DOCS / "api"
+DOCS_SOURCE = ROOT / "docs"
+DOCS_OUTPUT = ROOT / "build" / "docs"
+CONTENT = DOCS_SOURCE / "content"
+API_DIR = DOCS_OUTPUT / "api"
 
 
 @dataclass(frozen=True)
@@ -475,6 +477,7 @@ def _class_members(value: type[Any], qualified: str) -> list[ApiItem]:
 def _collect(module_name: str, include: list[str] | None = None) -> list[ApiItem]:
     module = importlib.import_module(module_name)
     items = []
+    exported = set(getattr(module, "__all__", ()))
     members = (
         [(name, getattr(module, name)) for name in include]
         if include is not None
@@ -483,7 +486,9 @@ def _collect(module_name: str, include: list[str] | None = None) -> list[ApiItem
     for name, value in members:
         if name.startswith("_"):
             continue
-        defined_here = getattr(value, "__module__", None) == module_name
+        defined_here = (
+            getattr(value, "__module__", None) == module_name or name in exported
+        )
         if inspect.isclass(value) and (defined_here or include is not None):
             kind = "class"
         elif inspect.isfunction(value) and (defined_here or include is not None):
@@ -749,6 +754,7 @@ def main() -> None:
             f"docs version {version} does not match package version {mt.__version__}"
         )
     pages = catalog["pages"]
+    shutil.copytree(DOCS_SOURCE / "assets", DOCS_OUTPUT / "assets", dirs_exist_ok=True)
     API_DIR.mkdir(parents=True, exist_ok=True)
     expected_api_pages = {f"{page['slug']}.html" for page in pages}
     for stale_page in API_DIR.glob("*.html"):
@@ -778,9 +784,9 @@ def main() -> None:
         home_href="index.html",
         version=version,
     )
-    (DOCS / "index.html").write_text(home, encoding="utf-8")
+    (DOCS_OUTPUT / "index.html").write_text(home, encoding="utf-8")
     search_json = json.dumps(search_index, ensure_ascii=False, separators=(",", ":"))
-    (DOCS / "assets" / "js" / "search-index.js").write_text(
+    (DOCS_OUTPUT / "assets" / "js" / "search-index.js").write_text(
         f"window.MYTORCH_SEARCH_INDEX={search_json};\n", encoding="utf-8"
     )
     print(f"Built {len(pages) + 1} pages with {len(search_index)} API entries")
