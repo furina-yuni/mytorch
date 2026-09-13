@@ -49,6 +49,17 @@ optimizer.step()  # GPU 파라미터 갱신
 `retain_graph=True`를 지정합니다. 평가처럼 그래프가 필요 없는 코드는
 `with mt.no_grad():`로 감쌀 수 있습니다.
 
+완전한 신경망 클래스, 합성 데이터 학습과 새 데이터 예측 예제는 다음 명령으로
+실행합니다.
+
+```powershell
+conda activate mytorch-gpu
+python examples/simple_classifier.py
+```
+
+예제의 `SimpleClassifier`는 `nn.Module`을 상속하고 두 개의 `Linear` 레이어와
+`ReLU`를 사용해 2차원 점을 left, right, top 세 클래스로 분류합니다.
+
 Tensor 데이터와 연산 결과는 항상 CUDA 장치에 남습니다. 기본 dtype은
 `mt.float32`이며 `mt.float16`, `mt.float32`, `mt.float64`를 지원합니다.
 현재 공개 연산은 모두 out-of-place이고 자동 CPU 폴백은 없습니다.
