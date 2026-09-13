@@ -18,7 +18,9 @@ DTypeLike = Any
 ShapeLike = int | tuple[int, ...] | list[int]
 
 
-def _shape_from_args(shape: tuple[ShapeLike, ...]) -> tuple[int, ...]:
+def _shape_from_args(
+    shape: tuple[ShapeLike, ...], *, allow_infer: bool = False
+) -> tuple[int, ...]:
     if len(shape) == 1 and isinstance(shape[0], (tuple, list)):
         result = tuple(shape[0])
     else:
@@ -27,7 +29,10 @@ def _shape_from_args(shape: tuple[ShapeLike, ...]) -> tuple[int, ...]:
         isinstance(value, int) and not isinstance(value, bool) for value in result
     ):
         raise TypeError("shape dimensions must be integers")
-    if any(value < 0 for value in result):
+    minimum = -1 if allow_infer else 0
+    if any(value < minimum for value in result) or (
+        allow_infer and result.count(-1) > 1
+    ):
         raise ValueError(f"shape dimensions must be non-negative, got {result}")
     return result
 
@@ -203,6 +208,42 @@ class Tensor:
     def detach(self) -> Tensor:
         return Tensor._from_array(self.__array)
 
+    def to(
+        self,
+        device: str | int | None = None,
+        dtype: DTypeLike | None = None,
+    ) -> Tensor:
+        """Copy or cast a Tensor without ever staging through CPU memory."""
+        target_device = self._device_index if device is None else parse_device(device)
+        target_dtype = self.dtype if dtype is None else cp.dtype(dtype)
+        if target_device == self._device_index and target_dtype == self.dtype:
+            return self
+        with cp.cuda.Device(target_device):
+            result = cp.asarray(self.__array, dtype=target_dtype)
+            if result is self.__array:
+                result = result.copy()
+        requires_grad = (
+            self.requires_grad
+            and target_dtype.kind == "f"
+            and _autograd.is_grad_enabled()
+        )
+        if not requires_grad:
+            return Tensor._from_array(result)
+
+        source_device = self._device_index
+
+        def backward(gradient: cp.ndarray):
+            with cp.cuda.Device(source_device):
+                return (cp.asarray(gradient, dtype=self.dtype),)
+
+        node = _autograd.Node(
+            name="to",
+            parents=(self,),
+            backward_fn=backward,
+            versions=(self._version,),
+        )
+        return Tensor._from_array(result, requires_grad=True, grad_fn=node)
+
     def backward(
         self, gradient: Tensor | None = None, *, retain_graph: bool = False
     ) -> None:
@@ -226,6 +267,27 @@ class Tensor:
 
     def _optimizer_update(self, update: cp.ndarray) -> None:
         self.__array += update.astype(self.dtype, copy=False)
+        self._version += 1
+
+    def _copy_from(self, source: Tensor | cp.ndarray) -> None:
+        array = source._array if isinstance(source, Tensor) else source
+        if not isinstance(array, cp.ndarray):
+            raise TypeError("Tensor data must come from GPU storage")
+        if array.shape != self.shape:
+            raise ValueError(
+                f"shape mismatch: expected {self.shape}, got {array.shape}"
+            )
+        with cp.cuda.Device(self._device_index):
+            self.__array[...] = cp.asarray(array, dtype=self.dtype)
+        self._version += 1
+
+    def _replace_array(self, array: cp.ndarray) -> None:
+        if not isinstance(array, cp.ndarray):
+            raise TypeError("internal Tensor storage must be a cupy.ndarray")
+        if self.requires_grad and array.dtype.kind != "f":
+            raise TypeError("a trainable Tensor must remain floating point")
+        self.__array = array
+        self._grad = None
         self._version += 1
 
     @property
@@ -419,6 +481,12 @@ class Tensor:
     def logsumexp(self, dim: int | tuple[int, ...], keepdim: bool = False) -> Tensor:
         return logsumexp(self, dim=dim, keepdim=keepdim)
 
+    def rsqrt(self) -> Tensor:
+        return rsqrt(self)
+
+    def round(self) -> Tensor:
+        return round(self)
+
     def sqrt(self) -> Tensor:
         return sqrt(self)
 
@@ -444,6 +512,37 @@ class Tensor:
 
     def normalize(self, p: float = 2.0, dim: int = 1, eps: float = 1e-12) -> Tensor:
         return normalize(self, p=p, dim=dim, eps=eps)
+
+    def contiguous(self) -> Tensor:
+        return contiguous(self)
+
+    def expand(self, *shape: ShapeLike) -> Tensor:
+        return expand(self, *shape)
+
+    def repeat(self, *repeats: ShapeLike) -> Tensor:
+        return repeat(self, *repeats)
+
+    def masked_fill(self, mask: Tensor, value: Any) -> Tensor:
+        return masked_fill(self, mask, value)
+
+    def pad(
+        self,
+        pad_width: Sequence[int],
+        mode: str = "constant",
+        value: float = 0.0,
+    ) -> Tensor:
+        return pad(self, pad_width, mode=mode, value=value)
+
+    def gather(self, dim: int, index: Tensor) -> Tensor:
+        return gather(self, dim, index)
+
+    def scatter_add(self, dim: int, index: Tensor, source: Tensor) -> Tensor:
+        return scatter_add(self, dim, index, source)
+
+    def topk(
+        self, k: int, dim: int = -1, largest: bool = True, sorted: bool = True
+    ) -> tuple[Tensor, Tensor]:
+        return topk(self, k, dim=dim, largest=largest, sorted=sorted)
 
     def clip(self, minimum: Any, maximum: Any) -> Tensor:
         return clip(self, minimum, maximum)
@@ -671,7 +770,7 @@ class Tensor:
         )
 
     def reshape(self, *shape: ShapeLike) -> Tensor:
-        normalized = _shape_from_args(shape)
+        normalized = _shape_from_args(shape, allow_infer=True)
         return _ops.apply(
             lambda array: array.reshape(normalized),
             self,
@@ -947,9 +1046,14 @@ def _random_create(
 ) -> Tensor:
     device_index = parse_device(device)
     normalized = _shape_from_args(shape)
+    resolved_dtype = cp.dtype(dtype)
+    generation_dtype = cp.float32 if resolved_dtype == cp.float16 else resolved_dtype
     with cp.cuda.Device(device_index):
         return Tensor._from_array(
-            operation(normalized, dtype=dtype), requires_grad=requires_grad
+            operation(normalized, dtype=generation_dtype).astype(
+                resolved_dtype, copy=False
+            ),
+            requires_grad=requires_grad,
         )
 
 
@@ -1038,6 +1142,245 @@ def log1p(input: Tensor) -> Tensor:
         backward=lambda grad, _result, arrays: (grad / (1 + arrays[0]),),
         name="log1p",
     )
+
+
+def rsqrt(input: Tensor) -> Tensor:
+    return _ops.unary(
+        cp.reciprocal,
+        sqrt(input),
+        backward=lambda gradient, _result, arrays: (-gradient / (arrays[0] ** 2),),
+        name="reciprocal_sqrt",
+    )
+
+
+def round(input: Tensor) -> Tensor:
+    """Round values; like PyTorch, its mathematical gradient is zero."""
+    return _ops.unary(
+        cp.round,
+        input,
+        backward=lambda gradient, _result, arrays: (cp.zeros_like(arrays[0]),),
+        name="round",
+    )
+
+
+def contiguous(input: Tensor) -> Tensor:
+    return _ops.apply(
+        cp.ascontiguousarray,
+        input,
+        backward=lambda gradient, _result, _arrays: (gradient,),
+        name="contiguous",
+    )
+
+
+def expand(input: Tensor, *shape: ShapeLike) -> Tensor:
+    if len(shape) == 1 and isinstance(shape[0], (tuple, list)):
+        target = tuple(shape[0])
+    else:
+        target = tuple(shape)
+    if not all(
+        isinstance(value, int) and not isinstance(value, bool) for value in target
+    ):
+        raise TypeError("expand dimensions must be integers")
+    if len(target) < input.ndim:
+        raise ValueError("expand cannot remove Tensor dimensions")
+    padded = (1,) * (len(target) - input.ndim) + input.shape
+    resolved = tuple(
+        source if requested == -1 else requested
+        for source, requested in zip(padded, target, strict=True)
+    )
+    if any(value < 0 for value in resolved):
+        raise ValueError("expand dimensions must be non-negative or -1")
+    for source, requested in zip(padded, resolved, strict=True):
+        if source != requested and source != 1:
+            raise ValueError(f"cannot expand shape {input.shape} to {resolved}")
+    return _ops.apply(
+        lambda array: cp.broadcast_to(array.reshape(padded), resolved),
+        input,
+        backward=lambda gradient, _result, arrays: (
+            _autograd.sum_to_shape(gradient, padded).reshape(arrays[0].shape),
+        ),
+        name="expand",
+    )
+
+
+def repeat(input: Tensor, *repeats: ShapeLike) -> Tensor:
+    normalized = _shape_from_args(repeats)
+    if len(normalized) < input.ndim:
+        raise ValueError("repeat expects at least as many values as Tensor dimensions")
+    if any(value < 0 for value in normalized):
+        raise ValueError("repeat counts must be non-negative")
+    padded_shape = (1,) * (len(normalized) - input.ndim) + input.shape
+
+    def backward(gradient, _result, arrays):
+        view_shape: list[int] = []
+        reduction_axes: list[int] = []
+        for axis, (count, size) in enumerate(
+            zip(normalized, padded_shape, strict=True)
+        ):
+            view_shape.extend((count, size))
+            reduction_axes.append(axis * 2)
+        result = gradient.reshape(view_shape).sum(axis=tuple(reduction_axes))
+        return (result.reshape(arrays[0].shape),)
+
+    return _ops.apply(
+        lambda array: cp.tile(array.reshape(padded_shape), normalized),
+        input,
+        backward=backward,
+        name="repeat",
+    )
+
+
+def pad(
+    input: Tensor,
+    pad: Sequence[int],
+    mode: str = "constant",
+    value: float = 0.0,
+) -> Tensor:
+    if mode != "constant":
+        raise ValueError("only constant padding is supported")
+    if not isinstance(pad, Sequence) or len(pad) % 2 or len(pad) > 2 * input.ndim:
+        raise ValueError("pad must contain pairs for trailing dimensions")
+    if not all(isinstance(item, int) and item >= 0 for item in pad):
+        raise ValueError("padding values must be non-negative integers")
+    pairs = [(0, 0)] * (input.ndim - len(pad) // 2)
+    trailing = list(zip(pad[::2], pad[1::2], strict=True))[::-1]
+    pairs.extend(trailing)
+    slices = tuple(
+        slice(before, before + size)
+        for (before, _), size in zip(pairs, input.shape, strict=True)
+    )
+    return _ops.apply(
+        lambda array: cp.pad(
+            array, tuple(pairs), mode="constant", constant_values=value
+        ),
+        input,
+        backward=lambda gradient, _result, _arrays: (gradient[slices],),
+        name="pad",
+    )
+
+
+def masked_fill(input: Tensor, mask: Tensor, value: Any) -> Tensor:
+    if not isinstance(mask, Tensor) or mask.dtype != cp.bool_:
+        raise TypeError("masked_fill mask must be a boolean Tensor")
+    return where(mask, value, input)
+
+
+def _gather_coordinates(index: cp.ndarray, axis: int) -> tuple[cp.ndarray, ...]:
+    coordinates = []
+    for dim, size in enumerate(index.shape):
+        if dim == axis:
+            coordinates.append(index)
+        else:
+            shape = [1] * index.ndim
+            shape[dim] = size
+            coordinates.append(cp.arange(size).reshape(shape))
+    return tuple(coordinates)
+
+
+def gather(input: Tensor, dim: int, index: Tensor) -> Tensor:
+    if not isinstance(index, Tensor) or index.dtype.kind not in "iu":
+        raise TypeError("gather index must be an integer Tensor")
+    axis = _ops.normalize_dims(dim, input.ndim)
+    assert isinstance(axis, int)
+    if index.ndim != input.ndim:
+        raise ValueError(
+            "gather input and index must have the same number of dimensions"
+        )
+    for current, (index_size, input_size) in enumerate(
+        zip(index.shape, input.shape, strict=True)
+    ):
+        if current != axis and index_size > input_size:
+            raise ValueError("gather index is too large for a non-gather dimension")
+    if input._device_index != index._device_index:
+        raise ValueError("gather input and index must be on the same device")
+
+    def backward(gradient, _result, arrays):
+        source, indices = arrays
+        result = cp.zeros_like(source)
+        cp.add.at(result, _gather_coordinates(indices, axis), gradient)
+        return result, None
+
+    return _ops.apply(
+        lambda array, indices: cp.take_along_axis(array, indices, axis=axis),
+        input,
+        index,
+        backward=backward,
+        name="gather",
+    )
+
+
+def scatter_add(input: Tensor, dim: int, index: Tensor, source: Tensor) -> Tensor:
+    if not isinstance(index, Tensor) or index.dtype.kind not in "iu":
+        raise TypeError("scatter_add index must be an integer Tensor")
+    if not isinstance(source, Tensor):
+        raise TypeError("scatter_add source must be a Tensor")
+    axis = _ops.normalize_dims(dim, input.ndim)
+    assert isinstance(axis, int)
+    if index.shape != source.shape or index.ndim != input.ndim:
+        raise ValueError(
+            "scatter_add index and source must have matching input-rank shapes"
+        )
+
+    def forward(base, indices, values):
+        result = base.copy()
+        cp.add.at(result, _gather_coordinates(indices, axis), values)
+        return result
+
+    def backward(gradient, _result, arrays):
+        _, indices, _ = arrays
+        return gradient, None, cp.take_along_axis(gradient, indices, axis=axis)
+
+    return _ops.apply(
+        forward,
+        input,
+        index,
+        source,
+        backward=backward,
+        name="scatter_add",
+    )
+
+
+def topk(
+    input: Tensor,
+    k: int,
+    dim: int = -1,
+    largest: bool = True,
+    sorted: bool = True,
+) -> tuple[Tensor, Tensor]:
+    if not isinstance(k, int) or isinstance(k, bool) or k <= 0:
+        raise ValueError("k must be a positive integer")
+    if not isinstance(largest, bool) or not isinstance(sorted, bool):
+        raise TypeError("largest and sorted must be bool values")
+    axis = _ops.normalize_dims(dim, input.ndim)
+    assert isinstance(axis, int)
+    if k > input.shape[axis]:
+        raise ValueError("k cannot exceed the selected dimension")
+    array = input._array
+    partition = cp.argpartition(-array if largest else array, k - 1, axis=axis)
+    selection = [slice(None)] * input.ndim
+    selection[axis] = slice(0, k)
+    indices_array = partition[tuple(selection)]
+    values_array = cp.take_along_axis(array, indices_array, axis=axis)
+    if sorted:
+        order = cp.argsort(-values_array if largest else values_array, axis=axis)
+        indices_array = cp.take_along_axis(indices_array, order, axis=axis)
+        values_array = cp.take_along_axis(values_array, order, axis=axis)
+    indices = Tensor._from_array(indices_array.astype(cp.int64, copy=False))
+    if not input.requires_grad or not _autograd.is_grad_enabled():
+        return Tensor._from_array(values_array), indices
+
+    def backward(gradient):
+        result = cp.zeros_like(array)
+        cp.add.at(result, _gather_coordinates(indices_array, axis), gradient)
+        return (result,)
+
+    node = _autograd.Node(
+        name="topk",
+        parents=(input,),
+        backward_fn=backward,
+        versions=(input._version,),
+    )
+    return Tensor._from_array(values_array, requires_grad=True, grad_fn=node), indices
 
 
 def logaddexp(left: Tensor, right: Any) -> Tensor:

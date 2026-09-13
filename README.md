@@ -1,8 +1,8 @@
 # MyTorch
 
 NVIDIA GPU에서만 수치 연산을 수행하는 교육용 Tensor 및 자동미분 프레임워크입니다.
-현재 단계에서는 GPU Tensor, 역방향 자동미분, MLP 레이어, 다양한 손실 함수와
-13종의 dense optimizer를 제공합니다.
+현재 버전 0.7.0은 GPU Tensor와 자동미분뿐 아니라 CNN, RNN/LSTM/GRU,
+Transformer Encoder, 정규화, LoRA, BitNet, 저정밀 추론과 MoE를 제공합니다.
 
 ## 빠른 예제
 
@@ -69,16 +69,27 @@ Tensor 데이터와 연산 결과는 항상 CUDA 장치에 남습니다. 기본 
 - 생성: `tensor`, `zeros`, `ones`, `full`, `arange`, `linspace`, `eye`,
   `rand`, `randn` 및 `*_like`
 - 수학: 사칙연산, 거듭제곱, `exp`, `log`, `log1p`, `logaddexp`,
-  `logsumexp`, `sqrt`, `square`, `sin`, `cos`, `sign`, `where`, `norm`,
-  `normalize`, `maximum`, `minimum`, `clip`
+  `logsumexp`, `sqrt`, `rsqrt`, `round`, `square`, `sin`, `cos`, `sign`,
+  `where`, `norm`, `normalize`, `maximum`, `minimum`, `clip`
 - 축소: `sum`, `mean`, `prod`, `max`, `min`, `var`, `std`, `argmax`,
   `argmin`
 - 행렬: `matmul`, `dot`, `mm`, `bmm`, `outer`
-- 형태: `reshape`, `flatten`, `squeeze`, `unsqueeze`, `transpose`, `permute`,
-  `cat`, `stack`, `split`, `chunk` 및 읽기 전용 인덱싱
+- 형태·선택: `reshape`, `flatten`, `squeeze`, `unsqueeze`, `transpose`,
+  `permute`, `expand`, `repeat`, `pad`, `gather`, `scatter_add`, `topk`,
+  `masked_fill`, `contiguous`, `cat`, `stack`, `split`, `chunk`
 - 활성화: ReLU/ELU/SELU/CELU/PReLU/RReLU 계열, hard·shrink 계열,
   sigmoid/tanh/softmax 계열, GELU/SiLU/Mish 및 GLU/ReGLU/GEGLU/SwiGLU
-- 신경망: `Module`, `Parameter`, `Linear`, `Sequential`, `Flatten`, 활성화 레이어
+- 신경망 기반: `Module`, `Parameter`, `ModuleList`, `ParameterList`,
+  `Linear`, `Bilinear`, `LazyLinear`, `Sequential`, `Embedding`, `EmbeddingBag`
+- 정규화·규제: BatchNorm/InstanceNorm 1D·2D·3D, `LayerNorm`, `RMSNorm`,
+  `GroupNorm`, Dropout 1D·2D·3D, `StochasticDepth`
+- 공간·순환: Conv/ConvTranspose/MaxPool/AvgPool/AdaptivePool 1D·2D·3D,
+  RNN/LSTM/GRU와 대응 Cell
+- Transformer: `scaled_dot_product_attention`, `MultiheadAttention`,
+  `TransformerEncoderLayer`, `TransformerEncoder`, `RotaryEmbedding`
+- 효율 계층: `LowRankLinear`, `LoRALinear`, `SwiGLUFeedForward`,
+  `Int8Linear`, `Int4WeightOnlyLinear`, `BitLinear`, `PackedBitLinear`,
+  `TopKRouter`, `SparseMoE`
 - 손실: MSE/L1/Huber 계열, CrossEntropy/NLL/BCE/KL 계열, margin·triplet·
   cosine·contrastive 계열, Focal 및 Dice
 - 최적화: `SGD`, `Adagrad`, `RMSprop`, `Adadelta`, `Adam`, `AdamW`,
@@ -124,6 +135,51 @@ optimizer = mt.optim.AdamW(
     weight_decay=1e-2,
 )
 ```
+
+## Transformer와 BitLinear
+
+```python
+encoder_layer = mt.nn.TransformerEncoderLayer(
+    d_model=128,
+    nhead=4,
+    dim_feedforward=256,
+    batch_first=True,
+    ffn="swiglu",
+)
+encoder = mt.nn.TransformerEncoder(encoder_layer, num_layers=2)
+encoded = encoder(mt.randn(8, 32, 128))
+
+bit_layer = mt.nn.BitLinear(128, 256)
+optimizer = mt.optim.AdamW(bit_layer.parameters(), lr=1e-3)
+
+optimizer.zero_grad()
+loss = bit_layer(encoded.detach()).square().mean()
+loss.backward()  # STE 기반 ternary QAT
+optimizer.step()
+
+bit_layer.eval()
+packed = bit_layer.to_inference()
+with mt.no_grad():
+    result = packed(encoded)  # packed ternary NVRTC 커널
+```
+
+`Int8Linear.from_float()`과 `Int4WeightOnlyLinear.from_float()`은 학습된
+`Linear`를 추론 전용 계층으로 변환합니다. `PackedBitLinear`도 추론 전용이며
+입력이 autograd 그래프를 요구하면 CPU나 일반 Linear로 폴백하지 않고 오류를
+발생시킵니다.
+
+## 모델 저장과 복원
+
+```python
+mt.save(model.state_dict(), "model.npz")
+
+restored = MyModel()
+restored.load_state_dict(mt.load("model.npz", device="cuda:0"))
+```
+
+NPZ에는 Parameter와 persistent buffer만 저장됩니다. BatchNorm running 통계,
+양자화 scale·packed weight와 LoRA merge 상태도 함께 복원됩니다. 임의 Python
+객체를 역직렬화하는 pickle은 사용하지 않습니다.
 
 ## 환경 만들기
 
