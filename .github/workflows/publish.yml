@@ -1,6 +1,9 @@
 name: Publish distribution
 
 on:
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
       target:
@@ -40,7 +43,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     environment:
-      name: ${{ inputs.target }}
+      name: ${{ github.event_name == 'push' && 'pypi' || inputs.target }}
     permissions:
       id-token: write
     steps:
@@ -49,11 +52,11 @@ jobs:
           name: python-package-distributions
           path: dist
       - name: Publish to TestPyPI
-        if: inputs.target == 'testpypi'
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
       - name: Publish to PyPI
-        if: inputs.target == 'pypi'
+        if: github.event_name == 'push' || inputs.target == 'pypi'
         uses: pypa/gh-action-pypi-publish@release/v1
 
