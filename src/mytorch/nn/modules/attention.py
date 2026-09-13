@@ -7,7 +7,7 @@ from typing import Any
 
 import cupy as cp
 
-from mytorch import _ops
+from mytorch import _ops, _random
 from mytorch.tensor import Tensor, tensor
 
 from .base import Module
@@ -63,7 +63,9 @@ def scaled_dot_product_attention(
         weights = cp.where(denominator > 0, exponent / cp.maximum(denominator, 1), 0)
         state["weights"] = weights
         if dropout_p:
-            keep = cp.random.random(weights.shape) >= dropout_p
+            keep = (
+                _random.random(weights.shape, device=query._device_index) >= dropout_p
+            )
             state["dropout"] = keep
             used_weights = (
                 weights * keep / (1 - dropout_p)

@@ -6,6 +6,7 @@ import math
 
 import cupy as cp
 
+from mytorch import _random
 from mytorch.tensor import Tensor
 
 
@@ -25,14 +26,20 @@ def uniform_(tensor: Tensor, a: float = 0.0, b: float = 1.0) -> Tensor:
     if a > b:
         raise ValueError("uniform_ expects a <= b")
     with cp.cuda.Device(tensor._device_index):
-        return _write(tensor, cp.random.uniform(a, b, tensor.shape))
+        return _write(
+            tensor,
+            _random.uniform(a, b, tensor.shape, device=tensor._device_index),
+        )
 
 
 def normal_(tensor: Tensor, mean: float = 0.0, std: float = 1.0) -> Tensor:
     if std < 0:
         raise ValueError("normal_ expects a non-negative std")
     with cp.cuda.Device(tensor._device_index):
-        return _write(tensor, cp.random.normal(mean, std, tensor.shape))
+        return _write(
+            tensor,
+            _random.normal(mean, std, tensor.shape, device=tensor._device_index),
+        )
 
 
 def _fan_in_out(tensor: Tensor) -> tuple[int, int]:

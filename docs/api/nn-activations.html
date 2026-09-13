@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="ReLU 계열, smooth activation, shrink 함수와 GLU 계열을 클래스형 API로 분리해 설명합니다.">
   <meta name="generator" content="MyTorch docs builder">
-  <title>활성화 함수 Module · MyTorch 0.8.0</title>
+  <title>활성화 함수 Module · MyTorch 0.9.0</title>
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="../assets/css/docs.css">
 </head>
@@ -13,7 +13,7 @@
   <a class="skip-link" href="#main">본문으로 건너뛰기</a>
   <header class="topbar">
     <button class="menu-button" type="button" aria-label="문서 메뉴 열기" aria-expanded="false">☰</button>
-    <a class="brand" href="../index.html"><span class="brand-mark">M</span><span>MyTorch</span><span class="version">v0.8.0</span></a>
+    <a class="brand" href="../index.html"><span class="brand-mark">M</span><span>MyTorch</span><span class="version">v0.9.0</span></a>
     <div class="search-box">
       <label class="sr-only" for="site-search">API 검색</label>
       <input id="site-search" type="search" placeholder="API 검색…  /" autocomplete="off">
@@ -24,14 +24,14 @@
   <div class="site-layout">
     <aside class="sidebar" aria-label="문서 모듈 탐색">
       <a class="overview-link" href="../index.html">문서 홈</a>
-      <div class="nav-group"><span>Guides</span><a href="../guides/training-and-inference.html">처음부터 끝까지: 학습과 추론</a></div><div class="nav-group"><span>Core</span><a href="tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="autograd.html">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Runtime</span><a href="cuda.html">CUDA 상태 확인</a></div><div class="nav-group"><span>Persistence</span><a href="serialization.html">모델 저장과 불러오기</a></div><div class="nav-group"><span>Data</span><a href="data.html">Dataset과 DataLoader</a></div><div class="nav-group"><span>Neural network</span><a href="nn-core.html">Module과 기본 계층</a><a href="nn-activations.html" aria-current="page">활성화 함수 Module</a><a href="nn-losses.html">손실 함수 Module</a><a href="nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="nn-conv.html">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="nn-attention.html">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="nn-efficient.html">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="nn-functional-layers.html">함수형 계층 연산</a><a href="nn-functional-activations.html">함수형 활성화 연산</a><a href="nn-functional-losses.html">함수형 손실 연산</a></div><div class="nav-group"><span>Initialization</span><a href="nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="optim-optimizer.html">Optimizer 기반 클래스</a><a href="optim-sgd.html">SGD</a><a href="optim-adam.html">Adam 계열</a><a href="optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="optim-classical.html">ASGD와 Rprop</a><a href="optim-modern.html">Adafactor와 Lion</a></div>
+      <div class="nav-group"><span>Guides</span><a href="../guides/training-and-inference.html">처음부터 끝까지: 학습과 추론</a></div><div class="nav-group"><span>Core</span><a href="tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="autograd.html">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Runtime</span><a href="cuda.html">CUDA 상태 확인</a></div><div class="nav-group"><span>Persistence</span><a href="serialization.html">모델과 학습 체크포인트</a></div><div class="nav-group"><span>Data</span><a href="data.html">Dataset과 DataLoader</a></div><div class="nav-group"><span>Neural network</span><a href="nn-core.html">Module과 기본 계층</a><a href="nn-activations.html" aria-current="page">활성화 함수 Module</a><a href="nn-losses.html">손실 함수 Module</a><a href="nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="nn-conv.html">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="nn-attention.html">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="nn-efficient.html">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="nn-functional-layers.html">함수형 계층 연산</a><a href="nn-functional-activations.html">함수형 활성화 연산</a><a href="nn-functional-losses.html">함수형 손실 연산</a></div><div class="nav-group"><span>Initialization</span><a href="nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="optim-optimizer.html">Optimizer 기반 클래스</a><a href="optim-sgd.html">SGD</a><a href="optim-adam.html">Adam 계열</a><a href="optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="optim-classical.html">ASGD와 Rprop</a><a href="optim-modern.html">Adafactor와 Lion</a></div>
     </aside>
     <main id="main" class="content">
       <header class="page-header">
         <div class="eyebrow">Neural network · mytorch.nn.modules</div>
         <h1>활성화 함수 Module</h1>
         <p>ReLU 계열, smooth activation, shrink 함수와 GLU 계열을 클래스형 API로 분리해 설명합니다.</p>
-        <div class="page-meta"><span>MyTorch 0.8.0</span><span>30개 API 항목</span><span>CUDA 전용</span></div>
+        <div class="page-meta"><span>MyTorch 0.9.0</span><span>30개 API 항목</span><span>CUDA 전용</span></div>
       </header>
       <section class="concept-panel">
         <div><h2>이 모듈을 사용할 때 알아둘 점</h2><ul><li>Module형 활성화는 생성자 설정을 보관하므로 Sequential 안에 바로 등록할 수 있습니다.</li><li>PReLU만 학습 가능한 Parameter를 가지며 RReLU는 train/eval 모드에 따라 slope 생성 방식이 달라집니다.</li><li>GLU 계열은 지정 축을 둘로 나누므로 해당 축 크기가 짝수여야 하고 출력 크기는 절반이 됩니다.</li></ul></div>
@@ -43,8 +43,7 @@ y = activation(x)
 y.mean().backward()</code></pre></div>
       </section>
       <nav class="page-toc" aria-label="이 페이지의 API"><strong>페이지 목차</strong><div><a href="#api-mytorch-nn-relu"><code>ReLU</code></a><a href="#api-mytorch-nn-leakyrelu"><code>LeakyReLU</code></a><a href="#api-mytorch-nn-sigmoid"><code>Sigmoid</code></a><a href="#api-mytorch-nn-tanh"><code>Tanh</code></a><a href="#api-mytorch-nn-softmax"><code>Softmax</code></a><a href="#api-mytorch-nn-logsoftmax"><code>LogSoftmax</code></a><a href="#api-mytorch-nn-gelu"><code>GELU</code></a><a href="#api-mytorch-nn-silu"><code>SiLU</code></a><a href="#api-mytorch-nn-softplus"><code>Softplus</code></a><a href="#api-mytorch-nn-threshold"><code>Threshold</code></a><a href="#api-mytorch-nn-hardtanh"><code>Hardtanh</code></a><a href="#api-mytorch-nn-relu6"><code>ReLU6</code></a><a href="#api-mytorch-nn-elu"><code>ELU</code></a><a href="#api-mytorch-nn-selu"><code>SELU</code></a><a href="#api-mytorch-nn-celu"><code>CELU</code></a><a href="#api-mytorch-nn-prelu"><code>PReLU</code></a><a href="#api-mytorch-nn-rrelu"><code>RReLU</code></a><a href="#api-mytorch-nn-hardsigmoid"><code>Hardsigmoid</code></a><a href="#api-mytorch-nn-hardswish"><code>Hardswish</code></a><a href="#api-mytorch-nn-hardshrink"><code>Hardshrink</code></a><a href="#api-mytorch-nn-softshrink"><code>Softshrink</code></a><a href="#api-mytorch-nn-tanhshrink"><code>Tanhshrink</code></a><a href="#api-mytorch-nn-logsigmoid"><code>LogSigmoid</code></a><a href="#api-mytorch-nn-softsign"><code>Softsign</code></a><a href="#api-mytorch-nn-softmin"><code>Softmin</code></a><a href="#api-mytorch-nn-mish"><code>Mish</code></a><a href="#api-mytorch-nn-glu"><code>GLU</code></a><a href="#api-mytorch-nn-reglu"><code>ReGLU</code></a><a href="#api-mytorch-nn-geglu"><code>GEGLU</code></a><a href="#api-mytorch-nn-swiglu"><code>SwiGLU</code></a></div></nav>
-      <div class="api-list">
-      <article class="api-card searchable" id="api-mytorch-nn-relu" data-search="mytorch.nn.ReLU 음수는 0, 양수는 그대로 두는 ReLU 활성화를 적용합니다.">
+      <div class="api-list"><article class="api-card searchable" id="api-mytorch-nn-relu" data-search="mytorch.nn.ReLU 음수는 0, 양수는 그대로 두는 ReLU 활성화를 적용합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -72,8 +71,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-leakyrelu" data-search="mytorch.nn.LeakyReLU 음수 구간에 작은 고정 기울기를 두는 Leaky ReLU를 적용합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-leakyrelu" data-search="mytorch.nn.LeakyReLU 음수 구간에 작은 고정 기울기를 두는 Leaky ReLU를 적용합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -101,8 +99,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-sigmoid" data-search="mytorch.nn.Sigmoid 입력을 0과 1 사이로 변환하는 수치 안정적 sigmoid를 적용합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-sigmoid" data-search="mytorch.nn.Sigmoid 입력을 0과 1 사이로 변환하는 수치 안정적 sigmoid를 적용합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -130,8 +127,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-tanh" data-search="mytorch.nn.Tanh 입력을 -1과 1 사이로 변환하는 hyperbolic tangent를 적용합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-tanh" data-search="mytorch.nn.Tanh 입력을 -1과 1 사이로 변환하는 hyperbolic tangent를 적용합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -159,8 +155,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-softmax" data-search="mytorch.nn.Softmax 지정 축의 값을 합이 1인 확률로 정규화합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-softmax" data-search="mytorch.nn.Softmax 지정 축의 값을 합이 1인 확률로 정규화합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -188,8 +183,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-logsoftmax" data-search="mytorch.nn.LogSoftmax log-sum-exp 안정화로 log-softmax를 계산합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-logsoftmax" data-search="mytorch.nn.LogSoftmax log-sum-exp 안정화로 log-softmax를 계산합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -217,8 +211,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-gelu" data-search="mytorch.nn.GELU Gaussian Error Linear Unit을 정확식 또는 tanh 근사식으로 계산합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-gelu" data-search="mytorch.nn.GELU Gaussian Error Linear Unit을 정확식 또는 tanh 근사식으로 계산합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -246,8 +239,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-silu" data-search="mytorch.nn.SiLU x·sigmoid(x)인 SiLU/Swish 활성화를 적용합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-silu" data-search="mytorch.nn.SiLU x·sigmoid(x)인 SiLU/Swish 활성화를 적용합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -275,8 +267,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-softplus" data-search="mytorch.nn.Softplus ReLU의 매끄러운 근사 log(1 + exp(βx))/β를 안정적으로 계산합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-softplus" data-search="mytorch.nn.Softplus ReLU의 매끄러운 근사 log(1 + exp(βx))/β를 안정적으로 계산합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -304,8 +295,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-threshold" data-search="mytorch.nn.Threshold 입력이 threshold 이하이면 지정 value로 바꿉니다.">
+<article class="api-card searchable" id="api-mytorch-nn-threshold" data-search="mytorch.nn.Threshold 입력이 threshold 이하이면 지정 value로 바꿉니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -333,8 +323,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-hardtanh" data-search="mytorch.nn.Hardtanh 값을 min_val과 max_val 구간으로 제한합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-hardtanh" data-search="mytorch.nn.Hardtanh 값을 min_val과 max_val 구간으로 제한합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -362,8 +351,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-relu6" data-search="mytorch.nn.ReLU6 ReLU 결과를 최대 6으로 제한합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-relu6" data-search="mytorch.nn.ReLU6 ReLU 결과를 최대 6으로 제한합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -391,8 +379,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-elu" data-search="mytorch.nn.ELU 음수 구간에 alpha·(exp(x)-1)을 사용하는 ELU를 적용합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-elu" data-search="mytorch.nn.ELU 음수 구간에 alpha·(exp(x)-1)을 사용하는 ELU를 적용합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -420,8 +407,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-selu" data-search="mytorch.nn.SELU self-normalizing network용 고정 scale과 alpha의 SELU를 적용합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-selu" data-search="mytorch.nn.SELU self-normalizing network용 고정 scale과 alpha의 SELU를 적용합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -449,8 +435,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-celu" data-search="mytorch.nn.CELU alpha로 연속 미분 가능하게 조정한 CELU를 적용합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-celu" data-search="mytorch.nn.CELU alpha로 연속 미분 가능하게 조정한 CELU를 적용합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -478,8 +463,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-prelu" data-search="mytorch.nn.PReLU 학습 가능한 음수 기울기를 scalar 또는 channel별로 적용합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-prelu" data-search="mytorch.nn.PReLU 학습 가능한 음수 기울기를 scalar 또는 channel별로 적용합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -507,8 +491,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-rrelu" data-search="mytorch.nn.RReLU 학습 중 무작위, 평가 중 평균 음수 기울기를 사용하는 RReLU를 적용합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-rrelu" data-search="mytorch.nn.RReLU 학습 중 무작위, 평가 중 평균 음수 기울기를 사용하는 RReLU를 적용합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -536,8 +519,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-hardsigmoid" data-search="mytorch.nn.Hardsigmoid 구간별 선형 sigmoid 근사를 계산합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-hardsigmoid" data-search="mytorch.nn.Hardsigmoid 구간별 선형 sigmoid 근사를 계산합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -565,8 +547,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-hardswish" data-search="mytorch.nn.Hardswish x·hardsigmoid(x)인 모바일 친화적 활성화를 계산합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-hardswish" data-search="mytorch.nn.Hardswish x·hardsigmoid(x)인 모바일 친화적 활성화를 계산합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -594,8 +575,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-hardshrink" data-search="mytorch.nn.Hardshrink 절댓값이 lambd 이하인 원소를 0으로 만듭니다.">
+<article class="api-card searchable" id="api-mytorch-nn-hardshrink" data-search="mytorch.nn.Hardshrink 절댓값이 lambd 이하인 원소를 0으로 만듭니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -623,8 +603,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-softshrink" data-search="mytorch.nn.Softshrink 임계값 바깥 값을 0 방향으로 lambd만큼 이동합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-softshrink" data-search="mytorch.nn.Softshrink 임계값 바깥 값을 0 방향으로 lambd만큼 이동합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -652,8 +631,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-tanhshrink" data-search="mytorch.nn.Tanhshrink x - tanh(x)를 계산합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-tanhshrink" data-search="mytorch.nn.Tanhshrink x - tanh(x)를 계산합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -681,8 +659,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-logsigmoid" data-search="mytorch.nn.LogSigmoid log(sigmoid(x))를 극단 입력에서도 안정적으로 계산합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-logsigmoid" data-search="mytorch.nn.LogSigmoid log(sigmoid(x))를 극단 입력에서도 안정적으로 계산합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -710,8 +687,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-softsign" data-search="mytorch.nn.Softsign x / (1 + |x|)를 계산합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-softsign" data-search="mytorch.nn.Softsign x / (1 + |x|)를 계산합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -739,8 +715,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-softmin" data-search="mytorch.nn.Softmin -input에 softmax를 적용해 작은 값에 큰 확률을 부여합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-softmin" data-search="mytorch.nn.Softmin -input에 softmax를 적용해 작은 값에 큰 확률을 부여합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -768,8 +743,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-mish" data-search="mytorch.nn.Mish x·tanh(softplus(x))인 Mish 활성화를 적용합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-mish" data-search="mytorch.nn.Mish x·tanh(softplus(x))인 Mish 활성화를 적용합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -797,8 +771,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-glu" data-search="mytorch.nn.GLU 입력을 반으로 나눠 첫 절반에 sigmoid gate를 곱합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-glu" data-search="mytorch.nn.GLU 입력을 반으로 나눠 첫 절반에 sigmoid gate를 곱합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -826,8 +799,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-reglu" data-search="mytorch.nn.ReGLU 입력을 반으로 나눠 첫 절반에 ReLU gate를 곱합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-reglu" data-search="mytorch.nn.ReGLU 입력을 반으로 나눠 첫 절반에 ReLU gate를 곱합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -855,8 +827,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-geglu" data-search="mytorch.nn.GEGLU 입력을 반으로 나눠 첫 절반에 GELU gate를 곱합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-geglu" data-search="mytorch.nn.GEGLU 입력을 반으로 나눠 첫 절반에 GELU gate를 곱합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -884,8 +855,7 @@ y.mean().backward()</code></pre></div>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-nn-swiglu" data-search="mytorch.nn.SwiGLU 입력을 반으로 나눠 첫 절반에 SiLU gate를 곱합니다.">
+<article class="api-card searchable" id="api-mytorch-nn-swiglu" data-search="mytorch.nn.SwiGLU 입력을 반으로 나눠 첫 절반에 SiLU gate를 곱합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-class">Class</span>
@@ -912,13 +882,12 @@ y.mean().backward()</code></pre></div>
             <ul><li>float16, float32, float64 입력을 지원하고 결과 dtype과 shape를 유지합니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
           </div>
         </section>
-      </article>
-    </div>
+      </article></div>
       <nav class="page-end"><a href="../index.html">← 전체 모듈 목록으로</a></nav>
     </main>
     <button class="back-to-top" type="button" aria-label="맨 위로">↑</button>
   </div>
-  <footer>MyTorch 0.8.0 · GPU-only educational framework · API는 현재 소스 시그니처에서 생성되었습니다.</footer>
+  <footer>MyTorch 0.9.0 · GPU-only educational framework · API는 현재 소스 시그니처에서 생성되었습니다.</footer>
   <script src="../assets/js/search-index.js"></script>
   <script src="../assets/js/docs.js"></script>
 </body>

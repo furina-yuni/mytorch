@@ -6,6 +6,7 @@ from typing import Any
 
 import cupy as cp
 
+from mytorch import _random
 from mytorch._device import parse_device
 from mytorch.tensor import DTypeLike, ShapeLike, Tensor, _shape_from_args
 
@@ -138,7 +139,7 @@ def rand(
     device: str | int = "cuda:0",
     requires_grad: bool = False,
 ) -> Tensor:
-    return _random_create(cp.random.random, shape, dtype, device, requires_grad)
+    return _random_create(_random.random, shape, dtype, device, requires_grad)
 
 
 def randn(
@@ -147,9 +148,7 @@ def randn(
     device: str | int = "cuda:0",
     requires_grad: bool = False,
 ) -> Tensor:
-    return _random_create(
-        cp.random.standard_normal, shape, dtype, device, requires_grad
-    )
+    return _random_create(_random.standard_normal, shape, dtype, device, requires_grad)
 
 
 def _random_create(
@@ -165,7 +164,7 @@ def _random_create(
     generation_dtype = cp.float32 if resolved_dtype == cp.float16 else resolved_dtype
     with cp.cuda.Device(device_index):
         return Tensor._from_array(
-            operation(normalized, dtype=generation_dtype).astype(
+            operation(normalized, device=device_index, dtype=generation_dtype).astype(
                 resolved_dtype, copy=False
             ),
             requires_grad=requires_grad,
@@ -221,12 +220,4 @@ def ones_like(
 
 
 def manual_seed(seed: int) -> None:
-    if not isinstance(seed, int) or isinstance(seed, bool):
-        raise TypeError("seed must be an integer")
-    current_device = int(cp.cuda.Device().id)
-    try:
-        for device_index in range(int(cp.cuda.runtime.getDeviceCount())):
-            with cp.cuda.Device(device_index):
-                cp.random.seed(seed)
-    finally:
-        cp.cuda.Device(current_device).use()
+    _random.manual_seed(seed)

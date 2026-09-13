@@ -1,10 +1,10 @@
 # MyTorch
 
 > 한국어 API 레퍼런스는 `python scripts/build_docs.py` 실행 후
-> [MyTorch 0.8.0 HTML 문서](docs/index.html)에서 확인할 수 있습니다.
+> [MyTorch 0.9.0 HTML 문서](docs/index.html)에서 확인할 수 있습니다.
 
 NVIDIA GPU에서만 수치 연산을 수행하는 교육용 Tensor 및 자동미분 프레임워크입니다.
-현재 버전 0.8.0은 GPU Tensor와 자동미분뿐 아니라 Dataset/DataLoader,
+현재 버전 0.9.0은 GPU Tensor와 자동미분뿐 아니라 Dataset/DataLoader,
 CNN, RNN/LSTM/GRU,
 Transformer Encoder, 정규화, LoRA, BitNet, 저정밀 추론과 MoE를 제공합니다.
 
@@ -219,6 +219,37 @@ restored.load_state_dict(mt.load("model.npz", device="cuda:0"))
 NPZ에는 Parameter와 persistent buffer만 저장됩니다. BatchNorm running 통계,
 양자화 scale·packed weight와 LoRA merge 상태도 함께 복원됩니다. 임의 Python
 객체를 역직렬화하는 pickle은 사용하지 않습니다.
+
+### 학습 체크포인트와 정확한 재개
+
+모델뿐 아니라 optimizer의 momentum·second moment, DataLoader shuffle과
+MyTorch GPU 난수 상태를 함께 저장하면 중단한 epoch 다음부터 동일한 순서로
+학습을 재개할 수 있습니다. 체크포인트는 epoch 경계에서 저장합니다.
+
+```python
+mt.save_checkpoint(
+    {
+        "epoch": epoch,
+        "model": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "dataloader": loader.state_dict(),
+        "rng_state": mt.get_rng_state(),
+    },
+    "training.mtz",
+)
+
+checkpoint = mt.load_checkpoint("training.mtz", device="cuda:0")
+model.load_state_dict(checkpoint["model"])
+optimizer.load_state_dict(checkpoint["optimizer"])
+loader.load_state_dict(checkpoint["dataloader"])
+mt.set_rng_state(checkpoint["rng_state"])
+start_epoch = checkpoint["epoch"]
+```
+
+`save_checkpoint()` 역시 pickle을 사용하지 않으며 Tensor는 NPZ 배열로,
+숫자·문자열·bool·None과 중첩 list·tuple·mapping은 검증된 JSON 메타데이터로
+저장합니다. optimizer 상태는 프로세스별 객체 ID 대신 안정적인 Parameter
+인덱스로 기록하고 복원할 때 shape와 dtype을 검사합니다.
 
 ## API 문서 관리
 

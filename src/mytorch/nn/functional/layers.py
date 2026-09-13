@@ -6,7 +6,7 @@ import math
 
 import cupy as cp
 
-from mytorch import _ops
+from mytorch import _ops, _random
 from mytorch.tensor import Tensor
 
 
@@ -85,7 +85,10 @@ def dropout(input: Tensor, p: float = 0.5, training: bool = True) -> Tensor:
     if p == 1:
         return input * 0
     with cp.cuda.Device(input._device_index):
-        mask = tensor(cp.random.random(input.shape) >= p, device=input.device)
+        mask = tensor(
+            _random.random(input.shape, device=input._device_index) >= p,
+            device=input.device,
+        )
     return input * mask / (1 - p)
 
 
@@ -102,7 +105,10 @@ def feature_dropout(input: Tensor, p: float = 0.5, training: bool = True) -> Ten
         return input * 0
     shape = input.shape[:2] + (1,) * (input.ndim - 2)
     with cp.cuda.Device(input._device_index):
-        mask = tensor(cp.random.random(shape) >= p, device=input.device)
+        mask = tensor(
+            _random.random(shape, device=input._device_index) >= p,
+            device=input.device,
+        )
     return input * mask / (1 - p)
 
 
@@ -128,7 +134,10 @@ def stochastic_depth(
         else (input.shape[0],) + (1,) * (input.ndim - 1)
     )
     with cp.cuda.Device(input._device_index):
-        mask = tensor(cp.random.random(shape) >= p, device=input.device)
+        mask = tensor(
+            _random.random(shape, device=input._device_index) >= p,
+            device=input.device,
+        )
     return input * mask / (1 - p)
 
 

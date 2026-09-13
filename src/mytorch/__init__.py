@@ -4,7 +4,14 @@ import cupy as _cp
 
 from . import cuda, data, nn, optim
 from ._autograd import enable_grad, is_grad_enabled, no_grad
-from .serialization import load, save
+from .serialization import (
+    get_rng_state,
+    load,
+    load_checkpoint,
+    save,
+    save_checkpoint,
+    set_rng_state,
+)
 from .tensor import (
     Tensor,
     abs,
@@ -102,11 +109,13 @@ __all__ = [
     "float32",
     "float64",
     "full",
+    "get_rng_state",
     "int32",
     "int64",
     "int8",
     "linspace",
     "load",
+    "load_checkpoint",
     "log",
     "log1p",
     "logaddexp",
@@ -135,8 +144,10 @@ __all__ = [
     "round",
     "rsqrt",
     "save",
+    "save_checkpoint",
     "sin",
     "sign",
+    "set_rng_state",
     "split",
     "scatter_add",
     "sqrt",
@@ -156,4 +167,4 @@ __all__ = [
     "is_grad_enabled",
     "uint8",
 ]
-__version__ = "0.8.0"
+__version__ = "0.9.0"

@@ -6,6 +6,7 @@ from typing import Any
 
 import cupy as cp
 
+from mytorch import _random
 from mytorch._device import parse_device
 from mytorch.tensor import Tensor, arange, full, maximum, stack, where, zeros
 
@@ -34,9 +35,14 @@ class Embedding(Module):
             if padding_idx < 0 or padding_idx >= num_embeddings:
                 raise ValueError("padding_idx is out of range")
         self.padding_idx = padding_idx
-        with cp.cuda.Device(parse_device(device)):
-            values = cp.random.normal(0, 1, (num_embeddings, embedding_dim)).astype(
-                dtype
+        device_index = parse_device(device)
+        with cp.cuda.Device(device_index):
+            values = _random.normal(
+                0,
+                1,
+                (num_embeddings, embedding_dim),
+                device=device_index,
+                dtype=dtype,
             )
             if padding_idx is not None:
                 values[padding_idx] = 0

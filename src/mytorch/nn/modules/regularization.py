@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import cupy as cp
 
+from mytorch import _random
 from mytorch.tensor import Tensor, tensor
 
 from ..functional import layers as F
@@ -57,5 +58,8 @@ class StochasticDepth(Module):
             else (input.shape[0],) + (1,) * (input.ndim - 1)
         )
         with cp.cuda.Device(input._device_index):
-            mask = tensor(cp.random.random(shape) >= self.p, device=input.device)
+            mask = tensor(
+                _random.random(shape, device=input._device_index) >= self.p,
+                device=input.device,
+            )
         return input * mask / (1 - self.p)

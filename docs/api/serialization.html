@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Module.state_dict()를 안전한 NPZ와 JSON 메타데이터 형식으로 저장하고 원하는 CUDA 장치로 복원합니다.">
+  <meta name="description" content="모델 state 또는 optimizer·DataLoader·GPU RNG를 포함한 전체 학습 상태를 안전한 NPZ와 JSON 메타데이터 형식으로 저장합니다.">
   <meta name="generator" content="MyTorch docs builder">
-  <title>모델 저장과 불러오기 · MyTorch 0.8.0</title>
+  <title>모델과 학습 체크포인트 · MyTorch 0.9.0</title>
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="../assets/css/docs.css">
 </head>
@@ -13,7 +13,7 @@
   <a class="skip-link" href="#main">본문으로 건너뛰기</a>
   <header class="topbar">
     <button class="menu-button" type="button" aria-label="문서 메뉴 열기" aria-expanded="false">☰</button>
-    <a class="brand" href="../index.html"><span class="brand-mark">M</span><span>MyTorch</span><span class="version">v0.8.0</span></a>
+    <a class="brand" href="../index.html"><span class="brand-mark">M</span><span>MyTorch</span><span class="version">v0.9.0</span></a>
     <div class="search-box">
       <label class="sr-only" for="site-search">API 검색</label>
       <input id="site-search" type="search" placeholder="API 검색…  /" autocomplete="off">
@@ -24,26 +24,63 @@
   <div class="site-layout">
     <aside class="sidebar" aria-label="문서 모듈 탐색">
       <a class="overview-link" href="../index.html">문서 홈</a>
-      <div class="nav-group"><span>Guides</span><a href="../guides/training-and-inference.html">처음부터 끝까지: 학습과 추론</a></div><div class="nav-group"><span>Core</span><a href="tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="autograd.html">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Runtime</span><a href="cuda.html">CUDA 상태 확인</a></div><div class="nav-group"><span>Persistence</span><a href="serialization.html" aria-current="page">모델 저장과 불러오기</a></div><div class="nav-group"><span>Data</span><a href="data.html">Dataset과 DataLoader</a></div><div class="nav-group"><span>Neural network</span><a href="nn-core.html">Module과 기본 계층</a><a href="nn-activations.html">활성화 함수 Module</a><a href="nn-losses.html">손실 함수 Module</a><a href="nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="nn-conv.html">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="nn-attention.html">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="nn-efficient.html">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="nn-functional-layers.html">함수형 계층 연산</a><a href="nn-functional-activations.html">함수형 활성화 연산</a><a href="nn-functional-losses.html">함수형 손실 연산</a></div><div class="nav-group"><span>Initialization</span><a href="nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="optim-optimizer.html">Optimizer 기반 클래스</a><a href="optim-sgd.html">SGD</a><a href="optim-adam.html">Adam 계열</a><a href="optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="optim-classical.html">ASGD와 Rprop</a><a href="optim-modern.html">Adafactor와 Lion</a></div>
+      <div class="nav-group"><span>Guides</span><a href="../guides/training-and-inference.html">처음부터 끝까지: 학습과 추론</a></div><div class="nav-group"><span>Core</span><a href="tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="autograd.html">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Runtime</span><a href="cuda.html">CUDA 상태 확인</a></div><div class="nav-group"><span>Persistence</span><a href="serialization.html" aria-current="page">모델과 학습 체크포인트</a></div><div class="nav-group"><span>Data</span><a href="data.html">Dataset과 DataLoader</a></div><div class="nav-group"><span>Neural network</span><a href="nn-core.html">Module과 기본 계층</a><a href="nn-activations.html">활성화 함수 Module</a><a href="nn-losses.html">손실 함수 Module</a><a href="nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="nn-conv.html">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="nn-attention.html">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="nn-efficient.html">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="nn-functional-layers.html">함수형 계층 연산</a><a href="nn-functional-activations.html">함수형 활성화 연산</a><a href="nn-functional-losses.html">함수형 손실 연산</a></div><div class="nav-group"><span>Initialization</span><a href="nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="optim-optimizer.html">Optimizer 기반 클래스</a><a href="optim-sgd.html">SGD</a><a href="optim-adam.html">Adam 계열</a><a href="optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="optim-classical.html">ASGD와 Rprop</a><a href="optim-modern.html">Adafactor와 Lion</a></div>
     </aside>
     <main id="main" class="content">
       <header class="page-header">
         <div class="eyebrow">Persistence · mytorch.serialization</div>
-        <h1>모델 저장과 불러오기</h1>
-        <p>Module.state_dict()를 안전한 NPZ와 JSON 메타데이터 형식으로 저장하고 원하는 CUDA 장치로 복원합니다.</p>
-        <div class="page-meta"><span>MyTorch 0.8.0</span><span>2개 API 항목</span><span>CUDA 전용</span></div>
+        <h1>모델과 학습 체크포인트</h1>
+        <p>모델 state 또는 optimizer·DataLoader·GPU RNG를 포함한 전체 학습 상태를 안전한 NPZ와 JSON 메타데이터 형식으로 저장합니다.</p>
+        <div class="page-meta"><span>MyTorch 0.9.0</span><span>6개 API 항목</span><span>CUDA 전용</span></div>
       </header>
       <section class="concept-panel">
-        <div><h2>이 모듈을 사용할 때 알아둘 점</h2><ul><li>저장할 때만 GPU Tensor가 NumPy 배열로 복사되며 임의 Python 객체 pickle은 사용하지 않습니다.</li><li>load()는 OrderedDict[str, Tensor]를 반환하므로 모델의 load_state_dict()에 전달합니다.</li><li>구조가 같은 모델을 먼저 생성한 뒤 strict 검증을 통해 shape와 dtype 불일치를 찾습니다.</li></ul></div>
+        <div><h2>이 모듈을 사용할 때 알아둘 점</h2><ul><li>저장할 때만 GPU Tensor가 NumPy 배열로 복사되며 임의 Python 객체 pickle은 사용하지 않습니다.</li><li>load()는 모델 전용 Tensor mapping을 반환하고, load_checkpoint()는 중첩된 전체 학습 상태를 지정 CUDA 장치로 복원합니다.</li><li>optimizer와 DataLoader의 state_dict, get_rng_state()를 함께 저장하면 epoch 경계에서 학습 순서와 무작위 연산을 정확히 이어갈 수 있습니다.</li></ul></div>
         <div><h2>기본 예제</h2><pre><code>import mytorch as mt
 
-mt.save(model.state_dict(), &quot;checkpoint.npz&quot;)
-state = mt.load(&quot;checkpoint.npz&quot;, device=&quot;cuda:0&quot;)
-model.load_state_dict(state)</code></pre></div>
+mt.save_checkpoint({
+    &quot;epoch&quot;: epoch,
+    &quot;model&quot;: model.state_dict(),
+    &quot;optimizer&quot;: optimizer.state_dict(),
+    &quot;dataloader&quot;: loader.state_dict(),
+    &quot;rng_state&quot;: mt.get_rng_state(),
+}, &quot;training.mtz&quot;)
+
+state = mt.load_checkpoint(&quot;training.mtz&quot;)
+model.load_state_dict(state[&quot;model&quot;])
+optimizer.load_state_dict(state[&quot;optimizer&quot;])
+loader.load_state_dict(state[&quot;dataloader&quot;])
+mt.set_rng_state(state[&quot;rng_state&quot;])</code></pre></div>
       </section>
-      <nav class="page-toc" aria-label="이 페이지의 API"><strong>페이지 목차</strong><div><a href="#api-mytorch-load"><code>load</code></a><a href="#api-mytorch-save"><code>save</code></a></div></nav>
-      <div class="api-list">
-      <article class="api-card searchable" id="api-mytorch-load" data-search="mytorch.load 저장된 NPZ state mapping을 지정 CUDA 장치의 Tensor로 복원합니다.">
+      <nav class="page-toc" aria-label="이 페이지의 API"><strong>페이지 목차</strong><div><a href="#api-mytorch-get-rng-state"><code>get_rng_state</code></a><a href="#api-mytorch-load"><code>load</code></a><a href="#api-mytorch-load-checkpoint"><code>load_checkpoint</code></a><a href="#api-mytorch-save"><code>save</code></a><a href="#api-mytorch-save-checkpoint"><code>save_checkpoint</code></a><a href="#api-mytorch-set-rng-state"><code>set_rng_state</code></a></div></nav>
+      <div class="api-list"><article class="api-card searchable" id="api-mytorch-get-rng-state" data-search="mytorch.get_rng_state MyTorch가 관리하는 장치별 GPU 난수 stream 위치를 반환합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.get_rng_state</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-get-rng-state" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">MyTorch가 관리하는 장치별 GPU 난수 stream 위치를 반환합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.get_rng_state() -&gt; &#x27;dict[str, Any]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <p class="empty-note">별도 인자가 없습니다.</p>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>장치별 seed와 다음 난수 호출 위치를 담은 안전한 Python mapping입니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>파일 메타데이터와 값 타입을 검증하며 임의 Python 객체를 pickle로 실행하지 않습니다.</li><li>Tensor를 저장하고 불러올 때만 GPU와 CPU 사이에 명시적인 복사가 일어납니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-load" data-search="mytorch.load 저장된 NPZ state mapping을 지정 CUDA 장치의 Tensor로 복원합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-function">Function</span>
@@ -67,12 +104,39 @@ model.load_state_dict(state)</code></pre></div>
           </div>
           <div>
             <h3>동작과 주의사항</h3>
-            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+            <ul><li>파일 메타데이터와 값 타입을 검증하며 임의 Python 객체를 pickle로 실행하지 않습니다.</li><li>Tensor를 저장하고 불러올 때만 GPU와 CPU 사이에 명시적인 복사가 일어납니다.</li></ul>
           </div>
         </section>
       </article>
-    
-      <article class="api-card searchable" id="api-mytorch-save" data-search="mytorch.save Tensor state mapping을 NPZ 배열과 JSON 메타데이터로 저장합니다.">
+<article class="api-card searchable" id="api-mytorch-load-checkpoint" data-search="mytorch.load_checkpoint 중첩된 학습 체크포인트를 검증하고 지정 CUDA 장치로 복원합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.load_checkpoint</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-load-checkpoint" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">중첩된 학습 체크포인트를 검증하고 지정 CUDA 장치로 복원합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.load_checkpoint(path: &#x27;str | Path&#x27;, device: &#x27;str | int&#x27; = &#x27;cuda:0&#x27;) -&gt; &#x27;OrderedDict[Any, Any]&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>path</code></td><td><code>&#x27;str | Path&#x27;</code></td><td><code>필수</code></td><td>읽거나 쓸 NPZ 파일 경로입니다.</td></tr><tr><td><code>device</code></td><td><code>&#x27;str | int&#x27;</code></td><td><code>&#x27;cuda:0&#x27;</code></td><td>CUDA 장치입니다. &#x27;cuda:N&#x27; 문자열 또는 정수 N을 사용하며 기본값은 cuda:0입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>저장된 scalar, container와 지정 CUDA 장치의 Tensor를 포함하는 순서 보존 mapping입니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>파일 메타데이터와 값 타입을 검증하며 임의 Python 객체를 pickle로 실행하지 않습니다.</li><li>Tensor를 저장하고 불러올 때만 GPU와 CPU 사이에 명시적인 복사가 일어납니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-save" data-search="mytorch.save Tensor state mapping을 NPZ 배열과 JSON 메타데이터로 저장합니다.">
         <header class="api-heading">
           <div>
             <span class="kind kind-function">Function</span>
@@ -87,7 +151,7 @@ model.load_state_dict(state)</code></pre></div>
         </section>
         <section>
           <h3>파라미터</h3>
-          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>state_dict</code></td><td><code>&#x27;Mapping[str, Tensor]&#x27;</code></td><td><code>필수</code></td><td>파라미터와 persistent buffer 이름을 Tensor에 대응시킨 mapping입니다.</td></tr><tr><td><code>path</code></td><td><code>&#x27;str | Path&#x27;</code></td><td><code>필수</code></td><td>읽거나 쓸 NPZ 파일 경로입니다.</td></tr></tbody></table></div>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>state_dict</code></td><td><code>&#x27;Mapping[str, Tensor]&#x27;</code></td><td><code>필수</code></td><td>모델, optimizer 또는 DataLoader가 state_dict()로 내보낸 검증 가능한 상태 mapping입니다.</td></tr><tr><td><code>path</code></td><td><code>&#x27;str | Path&#x27;</code></td><td><code>필수</code></td><td>읽거나 쓸 NPZ 파일 경로입니다.</td></tr></tbody></table></div>
         </section>
         <section class="api-grid">
           <div>
@@ -96,16 +160,71 @@ model.load_state_dict(state)</code></pre></div>
           </div>
           <div>
             <h3>동작과 주의사항</h3>
-            <ul><li>broadcasting과 dtype 승격은 지원 범위 안에서 CuPy 규칙을 따릅니다.</li><li>실수 입력이 requires_grad=True이고 gradient 모드가 켜져 있으면 backward 그래프를 기록합니다.</li><li>잘못된 dtype, device, shape, 축 또는 범위 값은 자동 보정하지 않고 명확한 예외로 거부합니다.</li></ul>
+            <ul><li>파일 메타데이터와 값 타입을 검증하며 임의 Python 객체를 pickle로 실행하지 않습니다.</li><li>Tensor를 저장하고 불러올 때만 GPU와 CPU 사이에 명시적인 복사가 일어납니다.</li></ul>
           </div>
         </section>
       </article>
-    </div>
+<article class="api-card searchable" id="api-mytorch-save-checkpoint" data-search="mytorch.save_checkpoint 모델·optimizer·loader·난수 상태를 안전한 학습 체크포인트로 저장합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.save_checkpoint</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-save-checkpoint" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">모델·optimizer·loader·난수 상태를 안전한 학습 체크포인트로 저장합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.save_checkpoint(checkpoint: &#x27;Mapping[str, Any]&#x27;, path: &#x27;str | Path&#x27;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>checkpoint</code></td><td><code>&#x27;Mapping[str, Any]&#x27;</code></td><td><code>필수</code></td><td>Tensor와 안전한 Python scalar·list·tuple·mapping으로 구성한 전체 학습 상태 mapping입니다.</td></tr><tr><td><code>path</code></td><td><code>&#x27;str | Path&#x27;</code></td><td><code>필수</code></td><td>읽거나 쓸 NPZ 파일 경로입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>None. 객체의 gradient, 난수 상태, 파일 또는 Parameter를 변경합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>파일 메타데이터와 값 타입을 검증하며 임의 Python 객체를 pickle로 실행하지 않습니다.</li><li>Tensor를 저장하고 불러올 때만 GPU와 CPU 사이에 명시적인 복사가 일어납니다.</li></ul>
+          </div>
+        </section>
+      </article>
+<article class="api-card searchable" id="api-mytorch-set-rng-state" data-search="mytorch.set_rng_state 저장된 장치별 GPU 난수 상태를 복원합니다.">
+        <header class="api-heading">
+          <div>
+            <span class="kind kind-function">Function</span>
+            <h2><code>mytorch.set_rng_state</code></h2>
+          </div>
+          <button class="copy-link" type="button" data-copy="api-mytorch-set-rng-state" aria-label="이 API 링크 복사">링크 복사</button>
+        </header>
+        <p class="lead">저장된 장치별 GPU 난수 상태를 복원합니다.</p>
+        <section class="signature-block" aria-label="시그니처">
+          <div class="section-label">Signature</div>
+          <pre><code>mytorch.set_rng_state(state: &#x27;Mapping[str, Any]&#x27;) -&gt; &#x27;None&#x27;</code></pre>
+        </section>
+        <section>
+          <h3>파라미터</h3>
+          <div class="table-scroll"><table><thead><tr><th>인자</th><th>타입</th><th>기본값</th><th>설명</th></tr></thead><tbody><tr><td><code>state</code></td><td><code>&#x27;Mapping[str, Any]&#x27;</code></td><td><code>필수</code></td><td>get_rng_state()가 반환한 seed, 장치 번호와 다음 난수 호출 위치를 담은 RNG 상태 mapping입니다.</td></tr></tbody></table></div>
+        </section>
+        <section class="api-grid">
+          <div>
+            <h3>반환값</h3>
+            <p>None. 객체의 gradient, 난수 상태, 파일 또는 Parameter를 변경합니다.</p>
+          </div>
+          <div>
+            <h3>동작과 주의사항</h3>
+            <ul><li>파일 메타데이터와 값 타입을 검증하며 임의 Python 객체를 pickle로 실행하지 않습니다.</li><li>Tensor를 저장하고 불러올 때만 GPU와 CPU 사이에 명시적인 복사가 일어납니다.</li></ul>
+          </div>
+        </section>
+      </article></div>
       <nav class="page-end"><a href="../index.html">← 전체 모듈 목록으로</a></nav>
     </main>
     <button class="back-to-top" type="button" aria-label="맨 위로">↑</button>
   </div>
-  <footer>MyTorch 0.8.0 · GPU-only educational framework · API는 현재 소스 시그니처에서 생성되었습니다.</footer>
+  <footer>MyTorch 0.9.0 · GPU-only educational framework · API는 현재 소스 시그니처에서 생성되었습니다.</footer>
   <script src="../assets/js/search-index.js"></script>
   <script src="../assets/js/docs.js"></script>
 </body>

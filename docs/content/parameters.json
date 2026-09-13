@@ -130,7 +130,7 @@
   "set_to_none": "True이면 grad를 None으로, False이면 0 Tensor로 초기화합니다.",
   "strict": "True이면 state_dict의 누락·초과 key를 오류로 처리합니다.",
   "path": "읽거나 쓸 NPZ 파일 경로입니다.",
-  "seed": "CuPy GPU 난수 생성기에 설정할 정수 seed입니다.",
+  "seed": "MyTorch GPU 난수 stream 또는 데이터 순서를 재현하도록 설정할 정수 seed입니다.",
   "start": "arange 또는 범위 생성의 시작값입니다.",
   "stop": "범위 생성의 끝값이며 arange에서는 포함되지 않습니다.",
   "step": "연속 값 사이의 간격입니다.",
@@ -163,7 +163,7 @@
   "modules": "순서대로 등록할 Module iterable입니다.",
   "parameters": "등록할 Parameter iterable입니다.",
   "prefix": "반환되는 재귀 이름 앞에 붙일 문자열입니다.",
-  "state_dict": "파라미터와 persistent buffer 이름을 Tensor에 대응시킨 mapping입니다.",
+  "state_dict": "모델, optimizer 또는 DataLoader가 state_dict()로 내보낸 검증 가능한 상태 mapping입니다.",
   "gain": "초기화 분산에 곱할 비선형성 보정 계수입니다.",
   "a": "균등분포 하한 또는 leaky ReLU의 negative slope입니다.",
   "b": "균등분포 상한입니다.",
@@ -224,5 +224,7 @@
   "seed": "shuffle 또는 random_split 순서를 재현할 Python 정수 seed입니다. None이면 비결정적 상태로 시작합니다.",
   "lengths": "각 Subset에 배정할 sample 수입니다. 전체 합은 원본 Dataset 길이와 같아야 합니다.",
   "indices": "원본 Dataset에서 Subset에 포함할 sample 인덱스 sequence입니다.",
-  "batch": "동일한 구조를 가진 sample의 비어 있지 않은 sequence입니다."
+  "batch": "동일한 구조를 가진 sample의 비어 있지 않은 sequence입니다.",
+  "checkpoint": "Tensor와 안전한 Python scalar·list·tuple·mapping으로 구성한 전체 학습 상태 mapping입니다.",
+  "state": "get_rng_state()가 반환한 seed, 장치 번호와 다음 난수 호출 위치를 담은 RNG 상태 mapping입니다."
 }

@@ -166,6 +166,44 @@ class DataLoader[SampleT, BatchT]:
             return length // self.batch_size
         return (length + self.batch_size - 1) // self.batch_size
 
+    def state_dict(self) -> dict[str, Any]:
+        """Capture shuffle state for exact continuation at an epoch boundary."""
+        return {
+            "version": 1,
+            "batch_size": self.batch_size,
+            "shuffle": self.shuffle,
+            "drop_last": self.drop_last,
+            "seed": self.seed,
+            "random_state": self._random.getstate(),
+        }
+
+    def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
+        """Restore a state produced by :meth:`state_dict`."""
+        if not isinstance(state_dict, Mapping):
+            raise TypeError("DataLoader state_dict must be a mapping")
+        expected = {
+            "version",
+            "batch_size",
+            "shuffle",
+            "drop_last",
+            "seed",
+            "random_state",
+        }
+        if set(state_dict) != expected:
+            raise ValueError("DataLoader state_dict has missing or unexpected fields")
+        if state_dict["version"] != 1:
+            raise ValueError(
+                f"unsupported DataLoader state version: {state_dict['version']!r}"
+            )
+        for name in ("batch_size", "shuffle", "drop_last"):
+            if state_dict[name] != getattr(self, name):
+                raise ValueError(f"DataLoader {name} does not match the checkpoint")
+        try:
+            self._random.setstate(state_dict["random_state"])
+        except (TypeError, ValueError) as error:
+            raise ValueError("invalid DataLoader random state") from error
+        self.seed = state_dict["seed"]
+
     def _load_batch(self, indices: Sequence[int]) -> BatchT:
         batch_getter = getattr(self.dataset, "_get_batch", None)
         if self.collate_fn is default_collate and callable(batch_getter):

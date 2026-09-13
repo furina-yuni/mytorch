@@ -59,6 +59,10 @@ SUMMARY = {
     "Optimizer": "dense GPU Parameter 그룹과 optimizer state의 공통 생명주기를 관리합니다.",
     "save": "Tensor state mapping을 NPZ 배열과 JSON 메타데이터로 저장합니다.",
     "load": "저장된 NPZ state mapping을 지정 CUDA 장치의 Tensor로 복원합니다.",
+    "save_checkpoint": "모델·optimizer·loader·난수 상태를 안전한 학습 체크포인트로 저장합니다.",
+    "load_checkpoint": "중첩된 학습 체크포인트를 검증하고 지정 CUDA 장치로 복원합니다.",
+    "get_rng_state": "MyTorch가 관리하는 장치별 GPU 난수 stream 위치를 반환합니다.",
+    "set_rng_state": "저장된 장치별 GPU 난수 상태를 복원합니다.",
     "is_available": "CUDA 런타임을 초기화할 수 있고 접근 가능한 GPU가 있는지 확인합니다.",
     "device_count": "현재 CUDA 런타임이 인식하는 GPU 장치 개수를 반환합니다.",
     "Dataset": "정수 인덱스로 한 sample을 반환하는 유한 map-style dataset의 추상 기반 클래스입니다.",
@@ -71,7 +75,7 @@ SUMMARY = {
     "enable_grad": "no_grad 안에서도 그래프 기록을 일시적으로 다시 켜는 context manager입니다.",
     "is_grad_enabled": "현재 실행 문맥에서 자동미분 기록이 활성화되었는지 반환합니다.",
     "set_grad_enabled": "자동미분 기록 상태를 지정 값으로 잠시 바꾸는 내부 친화적 context manager입니다.",
-    "manual_seed": "현재 사용 가능한 모든 CuPy GPU 난수 생성기의 seed를 고정합니다.",
+    "manual_seed": "체크포인트 가능한 모든 MyTorch GPU 난수 stream의 seed를 고정합니다.",
     "tensor": "Python·NumPy·CuPy 데이터를 지정 CUDA 장치의 Tensor로 변환합니다.",
     "arange": "일정 간격의 1차원 값을 GPU Tensor로 생성합니다.",
     "linspace": "시작과 끝을 포함한 균등 간격 값을 GPU Tensor로 생성합니다.",
@@ -393,12 +397,25 @@ def _return_text(item: ApiItem) -> str:
         )
     if item.kind == "property":
         return f"현재 {bare} 값. 속성을 읽는 과정에서 GPU 수치 데이터를 CPU로 복사하지 않습니다."
-    if bare in {"backward", "manual_seed", "save", "zero_grad", "step"}:
+    if bare in {
+        "backward",
+        "load_state_dict",
+        "manual_seed",
+        "save",
+        "save_checkpoint",
+        "set_rng_state",
+        "step",
+        "zero_grad",
+    }:
         return "None. 객체의 gradient, 난수 상태, 파일 또는 Parameter를 변경합니다."
     if bare in {"split", "chunk"}:
         return "원본과 같은 device에 있는 Tensor tuple. 분할 view의 역전파는 원래 위치로 gradient를 결합합니다."
     if bare == "topk":
         return "(values, indices) Tensor tuple. indices는 정수 dtype이며 자동미분 대상이 아닙니다."
+    if bare == "load_checkpoint":
+        return "저장된 scalar, container와 지정 CUDA 장치의 Tensor를 포함하는 순서 보존 mapping입니다."
+    if bare == "get_rng_state":
+        return "장치별 seed와 다음 난수 호출 위치를 담은 안전한 Python mapping입니다."
     if bare in {"load", "state_dict"}:
         return "이름과 GPU Tensor를 연결한 순서 보존 mapping입니다."
     if bare == "random_split":
@@ -421,6 +438,18 @@ def _return_text(item: ApiItem) -> str:
 def _behavior(item: ApiItem) -> list[str]:
     bare = item.name.split(".")[-1]
     notes = []
+    if item.qualified in {
+        "mytorch.get_rng_state",
+        "mytorch.load",
+        "mytorch.load_checkpoint",
+        "mytorch.save",
+        "mytorch.save_checkpoint",
+        "mytorch.set_rng_state",
+    }:
+        return [
+            "파일 메타데이터와 값 타입을 검증하며 임의 Python 객체를 pickle로 실행하지 않습니다.",
+            "Tensor를 저장하고 불러올 때만 GPU와 CPU 사이에 명시적인 복사가 일어납니다.",
+        ]
     if item.qualified.startswith("mytorch.data"):
         notes.append(
             "TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다."
@@ -595,7 +624,7 @@ def _render_api(item: ApiItem, descriptions: dict[str, str]) -> str:
           </div>
         </section>
       </article>
-    """
+    """.strip()
 
 
 def _nav(
@@ -700,7 +729,7 @@ def _render_page(
         for item in items
     )
     concepts = "".join(f"<li>{_escape(value)}</li>" for value in page["concepts"])
-    cards = "".join(_render_api(item, descriptions) for item in items)
+    cards = "\n".join(_render_api(item, descriptions) for item in items)
     body = f"""
       <header class="page-header">
         <div class="eyebrow">{_escape(page["eyebrow"])} · {_escape(page["module"])}</div>

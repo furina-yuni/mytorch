@@ -1,7 +1,7 @@
 {
   "site": {
     "name": "MyTorch",
-    "version": "0.8.0",
+    "version": "0.9.0",
     "description": "CuPy와 CUDA 위에서만 동작하는 교육용 딥러닝 프레임워크의 한국어 API 레퍼런스"
   },
   "pages": [
@@ -47,15 +47,15 @@
     {
       "slug": "serialization",
       "module": "mytorch.serialization",
-      "title": "모델 저장과 불러오기",
+      "title": "모델과 학습 체크포인트",
       "eyebrow": "Persistence",
-      "summary": "Module.state_dict()를 안전한 NPZ와 JSON 메타데이터 형식으로 저장하고 원하는 CUDA 장치로 복원합니다.",
+      "summary": "모델 state 또는 optimizer·DataLoader·GPU RNG를 포함한 전체 학습 상태를 안전한 NPZ와 JSON 메타데이터 형식으로 저장합니다.",
       "concepts": [
         "저장할 때만 GPU Tensor가 NumPy 배열로 복사되며 임의 Python 객체 pickle은 사용하지 않습니다.",
-        "load()는 OrderedDict[str, Tensor]를 반환하므로 모델의 load_state_dict()에 전달합니다.",
-        "구조가 같은 모델을 먼저 생성한 뒤 strict 검증을 통해 shape와 dtype 불일치를 찾습니다."
+        "load()는 모델 전용 Tensor mapping을 반환하고, load_checkpoint()는 중첩된 전체 학습 상태를 지정 CUDA 장치로 복원합니다.",
+        "optimizer와 DataLoader의 state_dict, get_rng_state()를 함께 저장하면 epoch 경계에서 학습 순서와 무작위 연산을 정확히 이어갈 수 있습니다."
       ],
-      "example": "import mytorch as mt\n\nmt.save(model.state_dict(), \"checkpoint.npz\")\nstate = mt.load(\"checkpoint.npz\", device=\"cuda:0\")\nmodel.load_state_dict(state)"
+      "example": "import mytorch as mt\n\nmt.save_checkpoint({\n    \"epoch\": epoch,\n    \"model\": model.state_dict(),\n    \"optimizer\": optimizer.state_dict(),\n    \"dataloader\": loader.state_dict(),\n    \"rng_state\": mt.get_rng_state(),\n}, \"training.mtz\")\n\nstate = mt.load_checkpoint(\"training.mtz\")\nmodel.load_state_dict(state[\"model\"])\noptimizer.load_state_dict(state[\"optimizer\"])\nloader.load_state_dict(state[\"dataloader\"])\nmt.set_rng_state(state[\"rng_state\"])"
     },
     {
       "slug": "data",

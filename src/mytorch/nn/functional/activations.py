@@ -7,7 +7,7 @@ import math
 import cupy as cp
 from cupyx.scipy.special import erf, expit
 
-from mytorch import _ops
+from mytorch import _ops, _random
 from mytorch.tensor import Tensor
 
 
@@ -299,7 +299,13 @@ def rrelu(
 
     def forward(array):
         slope = (
-            cp.random.uniform(lower, upper, size=array.shape).astype(array.dtype)
+            _random.uniform(
+                lower,
+                upper,
+                array.shape,
+                device=input._device_index,
+                dtype=array.dtype,
+            )
             if training
             else cp.full(array.shape, (lower + upper) / 2, dtype=array.dtype)
         )
