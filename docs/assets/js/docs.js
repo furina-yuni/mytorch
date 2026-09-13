@@ -7,12 +7,16 @@
   const search = document.querySelector("#site-search");
   const results = document.querySelector("#search-results");
   const backToTop = document.querySelector(".back-to-top");
+  const sidebar = document.querySelector(".sidebar");
   const index = Array.isArray(window.MYTORCH_SEARCH_INDEX)
     ? window.MYTORCH_SEARCH_INDEX
     : [];
+  const sidebarScrollKey = "mytorch-docs-sidebar-scroll";
 
-  const inApiDirectory = window.location.pathname.replaceAll("\\", "/").includes("/api/");
-  const resolveUrl = (url) => (inApiDirectory ? `../${url}` : url);
+  const normalizedPath = window.location.pathname.replaceAll("\\", "/");
+  const inContentDirectory =
+    normalizedPath.includes("/api/") || normalizedPath.includes("/guides/");
+  const resolveUrl = (url) => (inContentDirectory ? `../${url}` : url);
 
   const savedTheme = localStorage.getItem("mytorch-docs-theme");
   if (savedTheme === "light" || savedTheme === "dark") {
@@ -30,8 +34,24 @@
     menuButton.setAttribute("aria-expanded", String(open));
   });
 
+  const saveSidebarScroll = () => {
+    if (sidebar) sessionStorage.setItem(sidebarScrollKey, String(sidebar.scrollTop));
+  };
+
+  if (sidebar) {
+    const savedScroll = Number.parseFloat(sessionStorage.getItem(sidebarScrollKey) ?? "0");
+    if (Number.isFinite(savedScroll) && savedScroll >= 0) {
+      requestAnimationFrame(() => {
+        sidebar.scrollTop = savedScroll;
+      });
+    }
+    sidebar.addEventListener("scroll", saveSidebarScroll, { passive: true });
+    window.addEventListener("pagehide", saveSidebarScroll);
+  }
+
   document.querySelectorAll(".sidebar a").forEach((link) => {
     link.addEventListener("click", () => {
+      saveSidebarScroll();
       document.body.classList.remove("menu-open");
       menuButton?.setAttribute("aria-expanded", "false");
     });

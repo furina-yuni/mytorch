@@ -3,8 +3,10 @@
 
 from __future__ import annotations
 
+import ast
 import inspect
 import json
+from html import escape
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
@@ -67,12 +69,18 @@ def main() -> None:
     catalog = json.loads(
         (docs / "content" / "modules.json").read_text(encoding="utf-8")
     )
+    guide_catalog = json.loads(
+        (docs / "content" / "guides.json").read_text(encoding="utf-8")
+    )
     parameters = json.loads(
         (docs / "content" / "parameters.json").read_text(encoding="utf-8")
     )
     expected_pages = {docs / "index.html"}
     expected_pages |= {
         docs / "api" / f"{page['slug']}.html" for page in catalog["pages"]
+    }
+    expected_pages |= {
+        docs / "guides" / f"{guide['slug']}.html" for guide in guide_catalog["guides"]
     }
     actual_pages = set(docs.rglob("*.html"))
     if actual_pages != expected_pages:
@@ -122,7 +130,12 @@ def main() -> None:
                     raise AssertionError(f"missing anchor in {page.name}: {reference}")
 
     combined = "\n".join(documents.values())
-    public_names = set(mt.__all__) | set(mt.nn.__all__) | set(mt.optim.__all__)
+    public_names = (
+        set(mt.__all__)
+        | set(mt.data.__all__)
+        | set(mt.nn.__all__)
+        | set(mt.optim.__all__)
+    )
     public_names |= _defined_functions(mt.nn.functional)
     public_names |= _defined_functions(mt.nn.init)
     public_names |= {
@@ -144,12 +157,49 @@ def main() -> None:
     if len(parameters) < 100:
         raise AssertionError("parameter description catalog is unexpectedly small")
 
+    css = (docs / "assets" / "css" / "docs.css").read_text(encoding="utf-8")
+    javascript = (docs / "assets" / "js" / "docs.js").read_text(encoding="utf-8")
+    signature_rules = ("white-space: pre-wrap", "overflow-wrap: anywhere")
+    if not all(rule in css for rule in signature_rules):
+        raise AssertionError(
+            "API signatures are not configured to wrap within the page"
+        )
+    sidebar_rules = ("sidebarScrollKey", "sessionStorage", "pagehide")
+    if not all(rule in javascript for rule in sidebar_rules):
+        raise AssertionError("sidebar scroll persistence is not configured")
+    guide_page = docs / "guides" / "training-and-inference.html"
+    guide_document = documents[guide_page.resolve()]
+    for guide in guide_catalog["guides"]:
+        for code_key in ("training_code_file", "inference_code_file"):
+            code_path = root / guide[code_key]
+            code = code_path.read_text(encoding="utf-8")
+            ast.parse(code, filename=str(code_path))
+            if escape(code, quote=True) not in guide_document:
+                raise AssertionError(f"guide does not embed {guide[code_key]}")
+    guide_requirements = (
+        "훈련 전체 코드",
+        "추론 전체 코드",
+        "mt.data.TensorDataset(train_x, train_y)",
+        "mt.data.DataLoader(",
+        "optimizer.zero_grad(set_to_none=True)",
+        "loss.backward()",
+        "optimizer.step()",
+        "model.eval()",
+        "with mt.no_grad():",
+        "mt.save(model.state_dict(), CHECKPOINT)",
+        "model.load_state_dict(state, strict=True)",
+    )
+    if not all(value in guide_document for value in guide_requirements):
+        raise AssertionError("training/inference guide is missing an essential step")
+
     print(f"HTML pages: {len(actual_pages)}")
     print(f"Detailed API cards: {api_cards}")
     print(f"Documented public API names: {len(public_names)}")
     print(f"Parameter descriptions: {len(parameters)}")
     print(f"MyTorch version: {mt.__version__}")
     print("Local links and external asset separation: OK")
+    print("Sidebar persistence and signature wrapping: OK")
+    print("End-to-end training and inference guide: OK")
 
 
 if __name__ == "__main__":

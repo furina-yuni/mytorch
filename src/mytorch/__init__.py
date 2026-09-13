@@ -2,7 +2,7 @@
 
 import cupy as _cp
 
-from . import cuda, nn, optim
+from . import cuda, data, nn, optim
 from ._autograd import enable_grad, is_grad_enabled, no_grad
 from .serialization import load, save
 from .tensor import (
@@ -90,6 +90,7 @@ __all__ = [
     "contiguous",
     "cos",
     "cuda",
+    "data",
     "dot",
     "empty",
     "empty_like",
@@ -155,4 +156,4 @@ __all__ = [
     "is_grad_enabled",
     "uint8",
 ]
-__version__ = "0.7.0"
+__version__ = "0.8.0"

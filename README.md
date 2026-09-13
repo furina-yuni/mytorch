@@ -1,22 +1,24 @@
 # MyTorch
 
 > 한국어 API 레퍼런스는 `python scripts/build_docs.py` 실행 후
-> [MyTorch 0.7.0 HTML 문서](docs/index.html)에서 확인할 수 있습니다.
+> [MyTorch 0.8.0 HTML 문서](docs/index.html)에서 확인할 수 있습니다.
 
 NVIDIA GPU에서만 수치 연산을 수행하는 교육용 Tensor 및 자동미분 프레임워크입니다.
-현재 버전 0.7.0은 GPU Tensor와 자동미분뿐 아니라 CNN, RNN/LSTM/GRU,
+현재 버전 0.8.0은 GPU Tensor와 자동미분뿐 아니라 Dataset/DataLoader,
+CNN, RNN/LSTM/GRU,
 Transformer Encoder, 정규화, LoRA, BitNet, 저정밀 추론과 MoE를 제공합니다.
 
 ## 저장소 구조
 
 - `src/mytorch/_tensor`: 생성, 원소별 연산, shape/indexing, 축소, 선형대수 구현
+- `src/mytorch/data`: Dataset 구성, GPU batch collation과 DataLoader 구현
 - `src/mytorch/nn/functional`: 활성화, 계층 연산, 손실 함수 구현
 - `src/mytorch/nn/modules`: 기본 Module부터 CNN, Transformer, BitNet, MoE 계층
 - `src/mytorch/optim`: 공통 optimizer 기반과 알고리즘 계열별 구현
 - `tests/unit`, `tests/integration`, `tests/gpu`: 단위, 학습 통합, CUDA 시스템 검증
 
 중복된 호환 façade는 제거했으며 공개 API는 `mytorch`, `mytorch.nn`,
-`mytorch.nn.functional`, `mytorch.optim`에서 직접 제공합니다.
+`mytorch.data`, `mytorch.nn.functional`, `mytorch.optim`에서 직접 제공합니다.
 
 ## 빠른 예제
 
@@ -57,22 +59,45 @@ loss.backward()  # GPU에서 역전파
 optimizer.step()  # GPU 파라미터 갱신
 ```
 
+### Dataset과 mini-batch 학습
+
+```python
+dataset = mt.data.TensorDataset(x, target)
+loader = mt.data.DataLoader(
+    dataset, batch_size=64, shuffle=True, seed=2026
+)
+
+for epoch in range(100):
+    model.train()
+    for batch_x, batch_target in loader:
+        optimizer.zero_grad()
+        loss = F.mse_loss(model(batch_x), batch_target)
+        loss.backward()
+        optimizer.step()
+```
+
+`TensorDataset`은 입력과 라벨처럼 첫 번째 축의 길이가 같은 GPU Tensor를
+sample tuple로 연결합니다. 기본 `DataLoader`는 TensorDataset을 한 sample씩
+복사하지 않고 batch index를 이용해 GPU에서 한 번에 선택합니다. 일반 사용자
+정의 Dataset은 `__len__`과 `__getitem__`을 구현하면 사용할 수 있습니다.
+
 `requires_grad=True`인 실수 Tensor가 연산에 참여하면 동적 계산 그래프가
 생성됩니다. `backward()`는 leaf Tensor의 `grad`에 값을 누적하고 기본적으로
 사용한 그래프를 해제합니다. 같은 그래프를 다시 사용하려면 첫 호출에
 `retain_graph=True`를 지정합니다. 평가처럼 그래프가 필요 없는 코드는
 `with mt.no_grad():`로 감쌀 수 있습니다.
 
-완전한 신경망 클래스, 합성 데이터 학습과 새 데이터 예측 예제는 다음 명령으로
-실행합니다.
+완전한 mini-batch 학습과 별도 추론 예제는 다음 순서로 실행합니다.
 
 ```powershell
 conda activate mytorch-gpu
-python examples/simple_classifier.py
+python examples/train_classifier.py
+python examples/infer_classifier.py
 ```
 
-예제의 `SimpleClassifier`는 `nn.Module`을 상속하고 두 개의 `Linear` 레이어와
-`ReLU`를 사용해 2차원 점을 left, right, top 세 클래스로 분류합니다.
+예제의 `Classifier`는 `nn.Module`을 상속하고 `TensorDataset`과 shuffle이
+활성화된 `DataLoader`를 사용해 2차원 점을 left, right, top 세 클래스로
+분류합니다.
 
 Tensor 데이터와 연산 결과는 항상 CUDA 장치에 남습니다. 기본 dtype은
 `mt.float32`이며 `mt.float16`, `mt.float32`, `mt.float64`를 지원합니다.

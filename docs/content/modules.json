@@ -1,7 +1,7 @@
 {
   "site": {
     "name": "MyTorch",
-    "version": "0.7.0",
+    "version": "0.8.0",
     "description": "CuPy와 CUDA 위에서만 동작하는 교육용 딥러닝 프레임워크의 한국어 API 레퍼런스"
   },
   "pages": [
@@ -56,6 +56,19 @@
         "구조가 같은 모델을 먼저 생성한 뒤 strict 검증을 통해 shape와 dtype 불일치를 찾습니다."
       ],
       "example": "import mytorch as mt\n\nmt.save(model.state_dict(), \"checkpoint.npz\")\nstate = mt.load(\"checkpoint.npz\", device=\"cuda:0\")\nmodel.load_state_dict(state)"
+    },
+    {
+      "slug": "data",
+      "module": "mytorch.data",
+      "title": "Dataset과 DataLoader",
+      "eyebrow": "Data",
+      "summary": "입력과 라벨을 sample 단위로 매핑하고, GPU mini-batch로 효율적으로 묶어 학습 반복에 공급합니다.",
+      "concepts": [
+        "TensorDataset은 같은 첫 번째 차원을 가진 GPU Tensor들을 sample 단위 tuple로 연결하며, DataLoader는 기본 경로에서 batch 전체를 GPU advanced indexing으로 한 번에 가져옵니다.",
+        "shuffle=True와 seed를 함께 사용하면 실행 간 순서를 재현하면서 epoch마다 새로운 순서를 만들 수 있고, drop_last=True는 크기가 작은 마지막 batch를 제외합니다.",
+        "사용자 정의 Dataset은 __len__과 __getitem__을 구현합니다. default_collate는 Tensor, NumPy 배열, 숫자와 중첩 tuple·list·dict를 재귀적으로 GPU batch로 묶습니다."
+      ],
+      "example": "import mytorch as mt\n\nfeatures = mt.randn(1000, 32)\nlabels = mt.tensor([index % 4 for index in range(1000)], dtype=mt.int64)\ndataset = mt.data.TensorDataset(features, labels)\nloader = mt.data.DataLoader(\n    dataset, batch_size=64, shuffle=True, seed=2026\n)\n\nfor batch_features, batch_labels in loader:\n    optimizer.zero_grad()\n    loss = criterion(model(batch_features), batch_labels)\n    loss.backward()\n    optimizer.step()"
     },
     {
       "slug": "nn-core",

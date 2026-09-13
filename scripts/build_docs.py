@@ -61,6 +61,12 @@ SUMMARY = {
     "load": "저장된 NPZ state mapping을 지정 CUDA 장치의 Tensor로 복원합니다.",
     "is_available": "CUDA 런타임을 초기화할 수 있고 접근 가능한 GPU가 있는지 확인합니다.",
     "device_count": "현재 CUDA 런타임이 인식하는 GPU 장치 개수를 반환합니다.",
+    "Dataset": "정수 인덱스로 한 sample을 반환하는 유한 map-style dataset의 추상 기반 클래스입니다.",
+    "TensorDataset": "여러 GPU Tensor의 첫 번째 축을 입력·라벨 등 하나의 sample tuple로 연결합니다.",
+    "Subset": "원본 Dataset에서 선택한 인덱스만 노출하는 복사 없는 dataset view입니다.",
+    "DataLoader": "Dataset을 선택적으로 섞고 GPU mini-batch로 묶어 반복 가능한 loader입니다.",
+    "default_collate": "동일 구조의 sample 목록을 재귀적으로 GPU batch Tensor와 container로 결합합니다.",
+    "random_split": "Dataset 인덱스를 섞어 겹치지 않는 지정 길이의 Subset들로 나눕니다.",
     "no_grad": "블록 안에서 자동미분 그래프 기록을 일시적으로 끄는 context manager입니다.",
     "enable_grad": "no_grad 안에서도 그래프 기록을 일시적으로 다시 켜는 context manager입니다.",
     "is_grad_enabled": "현재 실행 문맥에서 자동미분 기록이 활성화되었는지 반환합니다.",
@@ -377,6 +383,10 @@ def _default(parameter: inspect.Parameter) -> str:
 
 def _return_text(item: ApiItem) -> str:
     bare = item.name.split(".")[-1]
+    if bare == "DataLoader":
+        return "재사용 가능한 DataLoader. 반복할 때마다 GPU mini-batch를 순서대로 생성합니다."
+    if bare in {"Dataset", "TensorDataset", "Subset"}:
+        return f"sample 단위 정수 인덱싱과 길이 조회를 지원하는 {bare} 객체입니다."
     if item.kind == "class":
         return (
             f"설정된 {bare} 인스턴스. Parameter와 buffer는 지정 CUDA 장치에 생성됩니다."
@@ -391,6 +401,10 @@ def _return_text(item: ApiItem) -> str:
         return "(values, indices) Tensor tuple. indices는 정수 dtype이며 자동미분 대상이 아닙니다."
     if bare in {"load", "state_dict"}:
         return "이름과 GPU Tensor를 연결한 순서 보존 mapping입니다."
+    if bare == "random_split":
+        return "서로 겹치지 않고 전체 Dataset을 모두 포함하는 Subset tuple입니다."
+    if bare == "default_collate":
+        return "sample과 같은 중첩 구조를 유지하면서 첫 축에 batch 차원을 추가한 GPU Tensor container입니다."
     if bare in {"is_available", "is_grad_enabled"}:
         return "조건을 나타내는 Python bool입니다."
     if bare == "device_count":
@@ -407,6 +421,14 @@ def _return_text(item: ApiItem) -> str:
 def _behavior(item: ApiItem) -> list[str]:
     bare = item.name.split(".")[-1]
     notes = []
+    if item.qualified.startswith("mytorch.data"):
+        notes.append(
+            "TensorDataset의 기본 batch 경로는 sample별 Python loop 대신 GPU 정수 인덱싱을 사용합니다."
+        )
+        notes.append(
+            "멀티프로세스 worker와 pinned CPU memory는 GPU 전용 loader에서 지원하지 않습니다."
+        )
+        return notes
     if bare.startswith(("Conv", "MaxPool", "AvgPool", "Adaptive")):
         notes.append("입력은 batch와 channel 축 뒤에 1~3개의 공간축을 갖습니다.")
     elif bare in {"matmul", "mm", "bmm", "dot", "outer", "Linear", "Bilinear"}:
@@ -576,9 +598,32 @@ def _render_api(item: ApiItem, descriptions: dict[str, str]) -> str:
     """
 
 
-def _nav(pages: list[dict[str, Any]], current: str, from_index: bool) -> str:
+def _nav(
+    pages: list[dict[str, Any]],
+    guides: list[dict[str, Any]],
+    current: str,
+    location: str,
+) -> str:
     links = []
-    prefix = "api/" if from_index else ""
+    api_prefix = (
+        "api/" if location == "index" else "" if location == "api" else "../api/"
+    )
+    guide_prefix = (
+        "guides/"
+        if location == "index"
+        else ""
+        if location == "guide"
+        else "../guides/"
+    )
+    if guides:
+        links.append('<div class="nav-group"><span>Guides</span>')
+        for guide in guides:
+            active = ' aria-current="page"' if guide["slug"] == current else ""
+            links.append(
+                f'<a href="{guide_prefix}{guide["slug"]}.html"{active}>'
+                f"{_escape(guide['title'])}</a>"
+            )
+        links.append("</div>")
     groups: dict[str, list[dict[str, Any]]] = {}
     for page in pages:
         groups.setdefault(page["eyebrow"], []).append(page)
@@ -587,7 +632,7 @@ def _nav(pages: list[dict[str, Any]], current: str, from_index: bool) -> str:
         for page in group_pages:
             active = ' aria-current="page"' if page["slug"] == current else ""
             links.append(
-                f'<a href="{prefix}{page["slug"]}.html"{active}>'
+                f'<a href="{api_prefix}{page["slug"]}.html"{active}>'
                 f"{_escape(page['title'])}</a>"
             )
         links.append("</div>")
@@ -684,7 +729,65 @@ def _render_page(
     return body, search
 
 
-def _render_index(pages: list[dict[str, Any]], version: str) -> str:
+def _render_guide(guide: dict[str, Any], version: str) -> str:
+    training_code = (ROOT / guide["training_code_file"]).read_text(encoding="utf-8")
+    inference_code = (ROOT / guide["inference_code_file"]).read_text(encoding="utf-8")
+    intro = "".join(f"<li>{_escape(value)}</li>" for value in guide["intro"])
+    flow = "".join(
+        f"<article><span>{_escape(item['step'])}</span><h3>{_escape(item['title'])}</h3>"
+        f"<p>{_escape(item['text'])}</p></article>"
+        for item in guide["flow"]
+    )
+    training_notes = "".join(
+        f"<li>{_escape(value)}</li>" for value in guide["training_notes"]
+    )
+    inference_notes = "".join(
+        f"<li>{_escape(value)}</li>" for value in guide["inference_notes"]
+    )
+    checklist = "".join(
+        f'<li><span aria-hidden="true">✓</span>{_escape(value)}</li>'
+        for value in guide["checklist"]
+    )
+    return f"""
+      <header class="page-header guide-header">
+        <div class="eyebrow">{_escape(guide["eyebrow"])} · End-to-end</div>
+        <h1>{_escape(guide["title"])}</h1>
+        <p>{_escape(guide["summary"])}</p>
+        <div class="page-meta"><span>MyTorch {version}</span><span>학습 예제</span><span>추론 예제</span><span>CUDA 전용</span></div>
+      </header>
+      <section class="guide-intro">
+        <h2>먼저 이해할 세 가지</h2>
+        <ul>{intro}</ul>
+      </section>
+      <section class="training-flow" aria-label="학습과 추론의 전체 순서">{flow}</section>
+      <nav class="page-toc guide-toc" aria-label="이 페이지의 목차">
+        <strong>이 페이지에서 다루는 내용</strong>
+        <div><a href="#training">훈련 전체 코드</a><a href="#training-notes">훈련 핵심 설명</a><a href="#inference">추론 전체 코드</a><a href="#inference-notes">추론 핵심 설명</a><a href="#checklist">최종 점검표</a></div>
+      </nav>
+      <section class="guide-section" id="training">
+        <div class="guide-section-heading"><div><span class="eyebrow">Training</span><h2>모델 훈련과 저장</h2></div><p>아래 코드를 <code>train_classifier.py</code>로 저장하고 먼저 실행합니다.</p></div>
+        <div class="code-example"><div class="code-example-bar"><span>train_classifier.py</span><span>CUDA · DataLoader · AdamW</span></div><pre><code>{_escape(training_code)}</code></pre></div>
+      </section>
+      <section class="guide-explanation" id="training-notes">
+        <h2>훈련 코드에서 중요한 부분</h2><ol>{training_notes}</ol>
+      </section>
+      <section class="guide-section" id="inference">
+        <div class="guide-section-heading"><div><span class="eyebrow">Inference</span><h2>저장된 모델로 추론</h2></div><p>훈련 코드가 만든 <code>classifier.npz</code>와 같은 폴더에서 실행합니다.</p></div>
+        <div class="code-example"><div class="code-example-bar"><span>infer_classifier.py</span><span>eval · no_grad · softmax</span></div><pre><code>{_escape(inference_code)}</code></pre></div>
+      </section>
+      <section class="guide-explanation" id="inference-notes">
+        <h2>추론 코드에서 중요한 부분</h2><ol>{inference_notes}</ol>
+      </section>
+      <section class="guide-checklist" id="checklist">
+        <div><span class="eyebrow">Checklist</span><h2>실행 전 최종 점검</h2></div><ul>{checklist}</ul>
+      </section>
+      <nav class="page-end"><a href="../index.html">← 전체 문서 목록으로</a></nav>
+    """
+
+
+def _render_index(
+    pages: list[dict[str, Any]], guides: list[dict[str, Any]], version: str
+) -> str:
     cards = []
     for page in pages:
         cards.append(
@@ -695,15 +798,24 @@ def _render_index(pages: list[dict[str, Any]], version: str) -> str:
           <code>{_escape(page["module"])}</code>
           <p>{_escape(page["summary"])}</p>
           <span class="card-link">모듈 문서 보기 →</span>
-        </a>
-            """
+        </a>"""
         )
+    guide_cards = "".join(
+        f"""
+        <a class="module-card guide-card searchable" href="guides/{guide["slug"]}.html" data-search="{_escape(guide["title"])} {_escape(guide["summary"])}">
+          <span class="eyebrow">{_escape(guide["eyebrow"])}</span>
+          <h2>{_escape(guide["title"])}</h2>
+          <p>{_escape(guide["summary"])}</p>
+          <span class="card-link">가이드 시작하기 →</span>
+        </a>"""
+        for guide in guides
+    )
     return f"""
       <header class="home-header">
         <div class="eyebrow">한국어 API Reference</div>
         <h1>GPU에서 배우고,<br><span>GPU에서 끝나는 딥러닝.</span></h1>
-        <p>MyTorch {version}의 Tensor, 자동미분, 신경망 계층, Transformer, BitNet, MoE와 optimizer를 실제 공개 시그니처에 맞춰 설명합니다.</p>
-        <div class="home-actions"><a class="primary" href="api/tensor.html">Tensor부터 시작</a><a href="#modules">모듈 찾아보기</a></div>
+        <p>MyTorch {version}의 Tensor, 자동미분, Dataset·DataLoader, 신경망 계층, Transformer, BitNet, MoE와 optimizer를 실제 공개 시그니처에 맞춰 설명합니다.</p>
+        <div class="home-actions"><a class="primary" href="guides/training-and-inference.html">학습 가이드 시작</a><a href="api/tensor.html">Tensor부터 시작</a><a href="#modules">모듈 찾아보기</a></div>
       </header>
       <section class="quickstart">
         <div>
@@ -722,6 +834,10 @@ optimizer.zero_grad()
 loss = mt.nn.functional.mse_loss(model(x), target)
 loss.backward()
 optimizer.step()</code></pre>
+      </section>
+      <section class="module-section guide-home-section">
+        <div class="section-heading"><div><span class="eyebrow">Guides</span><h2>전체 흐름으로 배우기</h2></div><p>API를 따로 찾기 전에 실행 가능한 코드로 훈련과 추론의 연결을 익힙니다.</p></div>
+        <div class="module-grid">{guide_cards}</div>
       </section>
       <section class="conventions">
         <h2>공통 규칙</h2>
@@ -745,6 +861,7 @@ optimizer.step()</code></pre>
 
 def main() -> None:
     catalog = json.loads((CONTENT / "modules.json").read_text(encoding="utf-8"))
+    guide_catalog = json.loads((CONTENT / "guides.json").read_text(encoding="utf-8"))
     descriptions = json.loads((CONTENT / "parameters.json").read_text(encoding="utf-8"))
     version = catalog["site"]["version"]
     if version != mt.__version__:
@@ -752,11 +869,18 @@ def main() -> None:
             f"docs version {version} does not match package version {mt.__version__}"
         )
     pages = catalog["pages"]
+    guides = guide_catalog["guides"]
     API_DIR.mkdir(parents=True, exist_ok=True)
+    guides_dir = DOCS_ROOT / "guides"
+    guides_dir.mkdir(parents=True, exist_ok=True)
     expected_api_pages = {f"{page['slug']}.html" for page in pages}
     for stale_page in API_DIR.glob("*.html"):
         if stale_page.name not in expected_api_pages:
             stale_page.unlink()
+    expected_guides = {f"{guide['slug']}.html" for guide in guides}
+    for stale_guide in guides_dir.glob("*.html"):
+        if stale_guide.name not in expected_guides:
+            stale_guide.unlink()
     search_index = []
     for page in pages:
         body, entries = _render_page(page, pages, descriptions, version)
@@ -765,18 +889,41 @@ def main() -> None:
             title=page["title"],
             description=page["summary"],
             body=body,
-            nav=_nav(pages, page["slug"], from_index=False),
+            nav=_nav(pages, guides, page["slug"], location="api"),
             asset_prefix="../",
             home_href="../index.html",
             version=version,
         )
         (API_DIR / f"{page['slug']}.html").write_text(document, encoding="utf-8")
 
+    for guide in guides:
+        guide_document = _shell(
+            title=guide["title"],
+            description=guide["summary"],
+            body=_render_guide(guide, version),
+            nav=_nav(pages, guides, guide["slug"], location="guide"),
+            asset_prefix="../",
+            home_href="../index.html",
+            version=version,
+        )
+        (guides_dir / f"{guide['slug']}.html").write_text(
+            guide_document, encoding="utf-8"
+        )
+        search_index.append(
+            {
+                "title": guide["title"],
+                "url": f"guides/{guide['slug']}.html",
+                "module": "Guide",
+                "summary": guide["summary"],
+                "kind": "guide",
+            }
+        )
+
     home = _shell(
         title="API Documentation",
         description=catalog["site"]["description"],
-        body=_render_index(pages, version),
-        nav=_nav(pages, "", from_index=True),
+        body=_render_index(pages, guides, version),
+        nav=_nav(pages, guides, "", location="index"),
         asset_prefix="",
         home_href="index.html",
         version=version,
@@ -786,7 +933,10 @@ def main() -> None:
     (DOCS_ROOT / "assets" / "js" / "search-index.js").write_text(
         f"window.MYTORCH_SEARCH_INDEX={search_json};\n", encoding="utf-8"
     )
-    print(f"Built {len(pages) + 1} pages with {len(search_index)} API entries")
+    print(
+        f"Built {len(pages) + len(guides) + 1} pages "
+        f"with {len(search_index)} searchable entries"
+    )
 
 
 if __name__ == "__main__":
