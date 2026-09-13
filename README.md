@@ -1,8 +1,8 @@
 # MyTorch
 
 NVIDIA GPU에서만 수치 연산을 수행하는 교육용 Tensor 및 자동미분 프레임워크입니다.
-현재 단계에서는 GPU Tensor, 역방향 자동미분, MLP 레이어, 손실 함수와 SGD를
-제공합니다.
+현재 단계에서는 GPU Tensor, 역방향 자동미분, MLP 레이어, 다양한 손실 함수와
+13종의 dense optimizer를 제공합니다.
 
 ## 빠른 예제
 
@@ -68,20 +68,62 @@ Tensor 데이터와 연산 결과는 항상 CUDA 장치에 남습니다. 기본 
 
 - 생성: `tensor`, `zeros`, `ones`, `full`, `arange`, `linspace`, `eye`,
   `rand`, `randn` 및 `*_like`
-- 수학: 사칙연산, 거듭제곱, `exp`, `log`, `sqrt`, `square`, `sin`, `cos`,
-  `maximum`, `minimum`, `clip`
+- 수학: 사칙연산, 거듭제곱, `exp`, `log`, `log1p`, `logaddexp`,
+  `logsumexp`, `sqrt`, `square`, `sin`, `cos`, `sign`, `where`, `norm`,
+  `normalize`, `maximum`, `minimum`, `clip`
 - 축소: `sum`, `mean`, `prod`, `max`, `min`, `var`, `std`, `argmax`,
   `argmin`
 - 행렬: `matmul`, `dot`, `mm`, `bmm`, `outer`
 - 형태: `reshape`, `flatten`, `squeeze`, `unsqueeze`, `transpose`, `permute`,
-  `cat`, `stack` 및 읽기 전용 인덱싱
-- 활성화: `relu`, `leaky_relu`, `sigmoid`, `tanh`, `softmax`,
-  `log_softmax`, `gelu`, `silu`, `softplus`
+  `cat`, `stack`, `split`, `chunk` 및 읽기 전용 인덱싱
+- 활성화: ReLU/ELU/SELU/CELU/PReLU/RReLU 계열, hard·shrink 계열,
+  sigmoid/tanh/softmax 계열, GELU/SiLU/Mish 및 GLU/ReGLU/GEGLU/SwiGLU
 - 신경망: `Module`, `Parameter`, `Linear`, `Sequential`, `Flatten`, 활성화 레이어
-- 손실·최적화: `mse_loss`, `cross_entropy`, `MSELoss`, `CrossEntropyLoss`, `SGD`
+- 손실: MSE/L1/Huber 계열, CrossEntropy/NLL/BCE/KL 계열, margin·triplet·
+  cosine·contrastive 계열, Focal 및 Dice
+- 최적화: `SGD`, `Adagrad`, `RMSprop`, `Adadelta`, `Adam`, `AdamW`,
+  `Adamax`, `NAdam`, `RAdam`, `ASGD`, `Rprop`, `Adafactor`, `Lion`
 
 활성화 함수는 `mytorch.nn.functional`에서 사용합니다. `relu`, `sigmoid`,
 `tanh`, `softmax`, `log_softmax`는 Tensor 메서드로도 호출할 수 있습니다.
+
+## 선택 가이드
+
+- 일반적인 첫 선택은 `AdamW`입니다. 가중치 감쇠를 moment 계산과 분리합니다.
+- 작은 MLP나 고전적인 실험에는 `SGD(momentum=0.9)`가 단순하고 해석하기 쉽습니다.
+- 큰 2차원 가중치의 optimizer 메모리를 줄이려면 factor state를 쓰는
+  `Adafactor`를 고려합니다.
+- `Lion`은 parameter마다 momentum 배열 하나만 저장하는 sign 기반 방식입니다.
+- 불균형 이진 분류에는 `BCEWithLogitsLoss` 또는 `FocalLoss`, binary mask에는
+  `DiceLoss`를 사용할 수 있습니다. 확률을 먼저 sigmoid로 만들기보다 logits를
+  직접 받는 손실이 극단값에서 더 안정적입니다.
+
+```python
+model = mt.nn.Sequential(
+    mt.nn.Linear(32, 64),
+    mt.nn.GELU(),
+    mt.nn.Linear(64, 4),
+)
+optimizer = mt.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-2)
+criterion = mt.nn.CrossEntropyLoss(label_smoothing=0.1)
+
+optimizer.zero_grad()
+loss = criterion(model(features), labels)
+loss.backward()
+optimizer.step()
+```
+
+Optimizer는 parameter-group별 옵션도 지원합니다.
+
+```python
+optimizer = mt.optim.AdamW(
+    [
+        {"params": [model[0].weight], "lr": 1e-3},
+        {"params": [model[0].bias], "lr": 2e-3, "weight_decay": 0.0},
+    ],
+    weight_decay=1e-2,
+)
+```
 
 ## 환경 만들기
 

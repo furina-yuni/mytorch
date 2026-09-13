@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import builtins
 import math
 from collections.abc import Sequence
 from typing import Any
 
 import cupy as cp
 import numpy as np
+from cupyx.scipy.special import logsumexp as cp_logsumexp
 
 from . import _autograd, _ops
 from ._device import format_device, parse_device
@@ -411,6 +413,12 @@ class Tensor:
     def log(self) -> Tensor:
         return log(self)
 
+    def log1p(self) -> Tensor:
+        return log1p(self)
+
+    def logsumexp(self, dim: int | tuple[int, ...], keepdim: bool = False) -> Tensor:
+        return logsumexp(self, dim=dim, keepdim=keepdim)
+
     def sqrt(self) -> Tensor:
         return sqrt(self)
 
@@ -422,6 +430,20 @@ class Tensor:
 
     def cos(self) -> Tensor:
         return cos(self)
+
+    def sign(self) -> Tensor:
+        return sign(self)
+
+    def norm(
+        self,
+        p: float = 2.0,
+        dim: int | tuple[int, ...] | None = None,
+        keepdim: bool = False,
+    ) -> Tensor:
+        return norm(self, p=p, dim=dim, keepdim=keepdim)
+
+    def normalize(self, p: float = 2.0, dim: int = 1, eps: float = 1e-12) -> Tensor:
+        return normalize(self, p=p, dim=dim, eps=eps)
 
     def clip(self, minimum: Any, maximum: Any) -> Tensor:
         return clip(self, minimum, maximum)
@@ -725,6 +747,14 @@ class Tensor:
             name="permute",
         )
 
+    def split(
+        self, split_size_or_sections: int | Sequence[int], dim: int = 0
+    ) -> tuple[Tensor, ...]:
+        return split(self, split_size_or_sections, dim=dim)
+
+    def chunk(self, chunks: int, dim: int = 0) -> tuple[Tensor, ...]:
+        return chunk(self, chunks, dim=dim)
+
     def matmul(self, other: Tensor) -> Tensor:
         return matmul(self, other)
 
@@ -1001,6 +1031,51 @@ def log(input: Tensor) -> Tensor:
     )
 
 
+def log1p(input: Tensor) -> Tensor:
+    return _ops.unary(
+        cp.log1p,
+        input,
+        backward=lambda grad, _result, arrays: (grad / (1 + arrays[0]),),
+        name="log1p",
+    )
+
+
+def logaddexp(left: Tensor, right: Any) -> Tensor:
+    def backward(gradient, _result, arrays):
+        first, second = arrays
+        first_weight = 1 / (1 + cp.exp(second - first))
+        return gradient * first_weight, gradient * (1 - first_weight)
+
+    return _ops.binary(cp.logaddexp, left, right, backward=backward, name="logaddexp")
+
+
+def logsumexp(
+    input: Tensor,
+    dim: int | tuple[int, ...],
+    keepdim: bool = False,
+) -> Tensor:
+    axes = _ops.normalize_dims(dim, input.ndim)
+    if axes is None:
+        raise TypeError("logsumexp dim must be an int or tuple of ints")
+
+    def backward(gradient, result, arrays):
+        source = arrays[0]
+        expanded_gradient = _expand_reduction_gradient(
+            gradient, source.shape, axes, keepdim
+        )
+        expanded_result = _expand_reduction_gradient(
+            result, source.shape, axes, keepdim
+        )
+        return (expanded_gradient * cp.exp(source - expanded_result),)
+
+    return _ops.apply(
+        lambda array: cp_logsumexp(array, axis=axes, keepdims=keepdim),
+        input,
+        backward=backward,
+        name="logsumexp",
+    )
+
+
 def sqrt(input: Tensor) -> Tensor:
     return _ops.unary(
         cp.sqrt,
@@ -1035,6 +1110,124 @@ def cos(input: Tensor) -> Tensor:
         backward=lambda grad, _result, arrays: (-grad * cp.sin(arrays[0]),),
         name="cos",
     )
+
+
+def sign(input: Tensor) -> Tensor:
+    return _ops.unary(
+        cp.sign,
+        input,
+        backward=lambda grad, _result, arrays: (cp.zeros_like(arrays[0]),),
+        name="sign",
+    )
+
+
+def where(condition: Tensor, input: Any, other: Any) -> Tensor:
+    if not isinstance(condition, Tensor) or condition.dtype.kind != "b":
+        raise TypeError("where condition must be a boolean Tensor")
+
+    def backward(gradient, _result, arrays):
+        mask = arrays[0]
+        return None, cp.where(mask, gradient, 0), cp.where(mask, 0, gradient)
+
+    return _ops.apply(
+        cp.where,
+        condition,
+        input,
+        other,
+        backward=backward,
+        name="where",
+    )
+
+
+def norm(
+    input: Tensor,
+    p: float = 2.0,
+    dim: int | tuple[int, ...] | None = None,
+    keepdim: bool = False,
+) -> Tensor:
+    _ops.require_floating(input, "norm")
+    if not isinstance(p, (int, float)) or isinstance(p, bool) or p < 1:
+        raise ValueError("p must be a real number greater than or equal to 1")
+    axes = _ops.normalize_dims(dim, input.ndim)
+
+    def forward(array):
+        return cp.sum(cp.abs(array) ** p, axis=axes, keepdims=keepdim) ** (1.0 / p)
+
+    def backward(gradient, result, arrays):
+        source = arrays[0]
+        expanded_gradient = _expand_reduction_gradient(
+            gradient, source.shape, axes, keepdim
+        )
+        expanded_result = _expand_reduction_gradient(
+            result, source.shape, axes, keepdim
+        )
+        safe_norm = cp.where(expanded_result == 0, 1, expanded_result)
+        derivative = cp.sign(source) * cp.abs(source) ** (p - 1) * safe_norm ** (1 - p)
+        derivative = cp.where(expanded_result == 0, 0, derivative)
+        return (expanded_gradient * derivative,)
+
+    return _ops.apply(forward, input, backward=backward, name="norm")
+
+
+def normalize(
+    input: Tensor,
+    p: float = 2.0,
+    dim: int = 1,
+    eps: float = 1e-12,
+) -> Tensor:
+    if not isinstance(eps, (int, float)) or isinstance(eps, bool) or eps <= 0:
+        raise ValueError("eps must be a positive real number")
+    denominator = maximum(norm(input, p=p, dim=dim, keepdim=True), eps)
+    return input / denominator
+
+
+def split(
+    input: Tensor,
+    split_size_or_sections: int | Sequence[int],
+    dim: int = 0,
+) -> tuple[Tensor, ...]:
+    axis = _ops.normalize_dims(dim, input.ndim)
+    assert isinstance(axis, int)
+    length = input.shape[axis]
+    if isinstance(split_size_or_sections, int) and not isinstance(
+        split_size_or_sections, bool
+    ):
+        if split_size_or_sections <= 0:
+            raise ValueError("split size must be positive")
+        sizes = [split_size_or_sections] * (length // split_size_or_sections)
+        if length % split_size_or_sections:
+            sizes.append(length % split_size_or_sections)
+    elif isinstance(split_size_or_sections, Sequence):
+        sizes = list(split_size_or_sections)
+        if not sizes or not all(
+            isinstance(size, int) and not isinstance(size, bool) and size >= 0
+            for size in sizes
+        ):
+            raise ValueError("split sections must be non-negative integers")
+        if builtins.sum(sizes) != length:
+            raise ValueError("split sections must sum to the selected dimension")
+    else:
+        raise TypeError("split size must be an int or sequence of ints")
+    outputs = []
+    start = 0
+    for size in sizes:
+        index = [slice(None)] * input.ndim
+        index[axis] = slice(start, start + size)
+        outputs.append(input[tuple(index)])
+        start += size
+    return tuple(outputs)
+
+
+def chunk(input: Tensor, chunks: int, dim: int = 0) -> tuple[Tensor, ...]:
+    if not isinstance(chunks, int) or isinstance(chunks, bool) or chunks <= 0:
+        raise ValueError("chunks must be a positive integer")
+    axis = _ops.normalize_dims(dim, input.ndim)
+    assert isinstance(axis, int)
+    length = input.shape[axis]
+    if length == 0:
+        return split(input, [0] * chunks, dim=axis)
+    split_size = math.ceil(length / chunks)
+    return split(input, split_size, dim=axis)
 
 
 def maximum(left: Tensor, right: Any) -> Tensor:
