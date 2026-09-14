@@ -33,7 +33,7 @@ jobs:
           python -m build
           python -m twine check dist/*
           python scripts/check_release.py --dist-dir dist
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: python-package-distributions
           path: dist/*

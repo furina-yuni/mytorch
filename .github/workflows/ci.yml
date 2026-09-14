@@ -31,7 +31,7 @@ jobs:
         run: python -m twine check dist/*
       - name: Inspect distribution contents
         run: python scripts/check_release.py --dist-dir dist
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: mytorch-gpu-dist
           path: dist/*
