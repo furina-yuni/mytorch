@@ -4,6 +4,27 @@ MyTorch follows [Semantic Versioning](https://semver.org/). The project is in
 beta, so minor releases may still refine APIs with an accompanying migration
 note.
 
+## 0.13.0 - 2026-09-14
+
+### Added
+
+- Evaluation-only `inference_mode` and non-accumulating `autograd.grad` VJPs.
+- Backward anomaly detection with operation names, forward traces, and optional
+  non-finite gradient checks.
+- Dense gradient norm and value clipping in `mytorch.nn.utils`.
+- CUDA pool/current/peak memory statistics, cache release, physical memory
+  information, and synchronization helpers.
+- A CUDA-event operator profiler with shape recording, aggregation, and text
+  summaries.
+- `python -m mytorch.utils` environment diagnostics for issue reports.
+- Automated GitHub Pages documentation and tag-triggered GPU validation.
+
+### Release quality
+
+- Added tests for every new debugging, autograd, memory, and profiling API.
+- Added a public-wheel GPU smoke-test procedure to the release workflow and
+  documentation.
+
 ## 0.12.0 - 2026-09-13
 
 ### Added

@@ -1,6 +1,9 @@
 name: NVIDIA GPU validation
 
 on:
+  push:
+    branches: [main]
+    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
@@ -30,4 +33,9 @@ jobs:
         run: |
           conda run -n mytorch-gpu python scripts/build_docs.py
           conda run -n mytorch-gpu python scripts/validate_docs.py
+      - name: Build and smoke-test the wheel
+        shell: powershell
+        run: |
+          conda run -n mytorch-gpu python -m build
+          conda run -n mytorch-gpu python scripts/verify_public_wheel.py --version local --find-links dist
 

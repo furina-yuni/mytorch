@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="ImageFolder와 비동기 DataLoader로 GPU mini-batch를 만들고 AMP·scheduler로 학습한 뒤 전체 checkpoint를 복원해 추론하는 흐름입니다.">
   <meta name="generator" content="MyTorch docs builder">
-  <title>처음부터 끝까지: 학습과 추론 · MyTorch 0.12.0</title>
+  <title>처음부터 끝까지: 학습과 추론 · MyTorch 0.13.0</title>
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="../assets/css/docs.css">
 </head>
@@ -13,7 +13,7 @@
   <a class="skip-link" href="#main">본문으로 건너뛰기</a>
   <header class="topbar">
     <button class="menu-button" type="button" aria-label="문서 메뉴 열기" aria-expanded="false">☰</button>
-    <a class="brand" href="../index.html"><span class="brand-mark">M</span><span>MyTorch</span><span class="version">v0.12.0</span></a>
+    <a class="brand" href="../index.html"><span class="brand-mark">M</span><span>MyTorch</span><span class="version">v0.13.0</span></a>
     <div class="search-box">
       <label class="sr-only" for="site-search">API 검색</label>
       <input id="site-search" type="search" placeholder="API 검색…  /" autocomplete="off">
@@ -24,14 +24,14 @@
   <div class="site-layout">
     <aside class="sidebar" aria-label="문서 모듈 탐색">
       <a class="overview-link" href="../index.html">문서 홈</a>
-      <div class="nav-group"><span>Guides</span><a href="training-and-inference.html" aria-current="page">처음부터 끝까지: 학습과 추론</a></div><div class="nav-group"><span>Core</span><a href="../api/tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="../api/autograd.html">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Training</span><a href="../api/amp.html">FP16 자동 혼합정밀도</a></div><div class="nav-group"><span>Runtime</span><a href="../api/cuda.html">CUDA 상태 확인</a></div><div class="nav-group"><span>Persistence</span><a href="../api/serialization.html">모델과 학습 체크포인트</a></div><div class="nav-group"><span>Data</span><a href="../api/data.html">Dataset과 DataLoader</a><a href="../api/data-transforms.html">이미지 Transform</a></div><div class="nav-group"><span>Neural network</span><a href="../api/nn-core.html">Module과 기본 계층</a><a href="../api/nn-activations.html">활성화 함수 Module</a><a href="../api/nn-losses.html">손실 함수 Module</a><a href="../api/nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="../api/nn-conv.html">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="../api/nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="../api/nn-attention.html">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="../api/nn-efficient.html">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="../api/nn-functional-layers.html">함수형 계층 연산</a><a href="../api/nn-functional-activations.html">함수형 활성화 연산</a><a href="../api/nn-functional-losses.html">함수형 손실 연산</a></div><div class="nav-group"><span>Initialization</span><a href="../api/nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="../api/optim-schedulers.html">Learning Rate Scheduler</a><a href="../api/optim-optimizer.html">Optimizer 기반 클래스</a><a href="../api/optim-sgd.html">SGD</a><a href="../api/optim-adam.html">Adam 계열</a><a href="../api/optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="../api/optim-classical.html">ASGD와 Rprop</a><a href="../api/optim-modern.html">Adafactor와 Lion</a></div>
+      <div class="nav-group"><span>Guides</span><a href="training-and-inference.html" aria-current="page">처음부터 끝까지: 학습과 추론</a></div><div class="nav-group"><span>Core</span><a href="../api/tensor.html">Tensor와 기본 연산</a></div><div class="nav-group"><span>Autograd</span><a href="../api/autograd.html">자동미분과 gradient 모드</a></div><div class="nav-group"><span>Training</span><a href="../api/amp.html">FP16 자동 혼합정밀도</a><a href="../api/nn-utils.html">Gradient clipping</a></div><div class="nav-group"><span>Runtime</span><a href="../api/cuda.html">CUDA 상태 확인</a><a href="../api/profiler.html">CUDA 연산 Profiler</a><a href="../api/environment.html">설치 환경 진단</a></div><div class="nav-group"><span>Persistence</span><a href="../api/serialization.html">모델과 학습 체크포인트</a></div><div class="nav-group"><span>Data</span><a href="../api/data.html">Dataset과 DataLoader</a><a href="../api/data-transforms.html">이미지 Transform</a></div><div class="nav-group"><span>Neural network</span><a href="../api/nn-core.html">Module과 기본 계층</a><a href="../api/nn-activations.html">활성화 함수 Module</a><a href="../api/nn-losses.html">손실 함수 Module</a><a href="../api/nn-basic.html">임베딩, Dropout, 정규화</a></div><div class="nav-group"><span>Vision</span><a href="../api/nn-conv.html">Convolution과 Pooling</a></div><div class="nav-group"><span>Sequence</span><a href="../api/nn-recurrent.html">RNN, GRU, LSTM</a></div><div class="nav-group"><span>Transformer</span><a href="../api/nn-attention.html">Attention, Transformer, RoPE</a></div><div class="nav-group"><span>Efficient models</span><a href="../api/nn-efficient.html">LoRA, 양자화, BitNet, MoE</a></div><div class="nav-group"><span>Functional</span><a href="../api/nn-functional-layers.html">함수형 계층 연산</a><a href="../api/nn-functional-activations.html">함수형 활성화 연산</a><a href="../api/nn-functional-losses.html">함수형 손실 연산</a></div><div class="nav-group"><span>Initialization</span><a href="../api/nn-init.html">파라미터 초기화</a></div><div class="nav-group"><span>Optimization</span><a href="../api/optim-schedulers.html">Learning Rate Scheduler</a><a href="../api/optim-optimizer.html">Optimizer 기반 클래스</a><a href="../api/optim-sgd.html">SGD</a><a href="../api/optim-adam.html">Adam 계열</a><a href="../api/optim-adaptive.html">Adagrad, RMSprop, Adadelta</a><a href="../api/optim-classical.html">ASGD와 Rprop</a><a href="../api/optim-modern.html">Adafactor와 Lion</a></div>
     </aside>
     <main id="main" class="content">
       <header class="page-header guide-header">
         <div class="eyebrow">Guides · End-to-end</div>
         <h1>처음부터 끝까지: 학습과 추론</h1>
         <p>ImageFolder와 비동기 DataLoader로 GPU mini-batch를 만들고 AMP·scheduler로 학습한 뒤 전체 checkpoint를 복원해 추론하는 흐름입니다.</p>
-        <div class="page-meta"><span>MyTorch 0.12.0</span><span>학습 예제</span><span>추론 예제</span><span>CUDA 전용</span></div>
+        <div class="page-meta"><span>MyTorch 0.13.0</span><span>학습 예제</span><span>추론 예제</span><span>CUDA 전용</span></div>
       </header>
       <section class="guide-intro">
         <h2>먼저 이해할 세 가지</h2>
@@ -198,7 +198,7 @@ if __name__ == &quot;__main__&quot;:
     </main>
     <button class="back-to-top" type="button" aria-label="맨 위로">↑</button>
   </div>
-  <footer>MyTorch 0.12.0 · GPU-only educational framework · API는 현재 소스 시그니처에서 생성되었습니다.</footer>
+  <footer>MyTorch 0.13.0 · GPU-only educational framework · API는 현재 소스 시그니처에서 생성되었습니다.</footer>
   <script src="../assets/js/search-index.js"></script>
   <script src="../assets/js/docs.js"></script>
 </body>

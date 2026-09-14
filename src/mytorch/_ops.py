@@ -73,10 +73,17 @@ def apply(
     device = _device_for(inputs)
     arrays = [_unwrap(value, device) for value in inputs]
     from .amp.autocast_mode import _cast_arrays
+    from .profiler.profiler import _record_operation
 
     arrays = _cast_arrays(arrays, name or getattr(operation, "__name__", None))
     with cp.cuda.Device(device):
-        result = operation(*arrays, **kwargs)
+        operation_name = name or getattr(operation, "__name__", "operation")
+        result = _record_operation(
+            operation_name,
+            device,
+            arrays,
+            lambda: operation(*arrays, **kwargs),
+        )
         if not isinstance(result, cp.ndarray):
             result = cp.asarray(result)
     tracked = [
@@ -112,6 +119,7 @@ def apply(
         parents=parents,
         backward_fn=vjp,
         versions=tuple(parent._version for parent in parents),
+        forward_trace=_autograd.capture_forward_trace(),
     )
     return tensor_type._from_array(result, requires_grad=True, grad_fn=node)
 

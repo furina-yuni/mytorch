@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mytorch-gpu"
-version = "0.12.0"
+version = "0.13.0"
 description = "A GPU-only educational tensor, autograd, and neural-network framework"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
@@ -50,7 +50,7 @@ dev = [
 ]
 
 [project.urls]
-Documentation = "https://github.com/furina-yuni/mytorch/tree/main/docs"
+Documentation = "https://furina-yuni.github.io/mytorch/"
 Issues = "https://github.com/furina-yuni/mytorch/issues"
 Repository = "https://github.com/furina-yuni/mytorch"
 

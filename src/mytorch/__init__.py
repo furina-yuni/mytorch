@@ -2,8 +2,18 @@
 
 import cupy as _cp
 
-from . import amp, cuda, data, nn, optim
-from ._autograd import enable_grad, is_grad_enabled, no_grad
+from . import amp, cuda, data, nn, optim, profiler, utils
+from ._autograd import (
+    detect_anomaly,
+    enable_grad,
+    grad,
+    inference_mode,
+    is_anomaly_enabled,
+    is_grad_enabled,
+    is_inference_mode_enabled,
+    no_grad,
+    set_detect_anomaly,
+)
 from .serialization import (
     get_rng_state,
     load,
@@ -99,6 +109,7 @@ __all__ = [
     "cos",
     "cuda",
     "data",
+    "detect_anomaly",
     "dot",
     "empty",
     "empty_like",
@@ -110,10 +121,14 @@ __all__ = [
     "float32",
     "float64",
     "full",
+    "grad",
     "get_rng_state",
     "int32",
     "int64",
     "int8",
+    "inference_mode",
+    "is_anomaly_enabled",
+    "is_inference_mode_enabled",
     "linspace",
     "load",
     "load_checkpoint",
@@ -139,6 +154,7 @@ __all__ = [
     "outer",
     "optim",
     "prod",
+    "profiler",
     "rand",
     "randn",
     "repeat",
@@ -149,6 +165,7 @@ __all__ = [
     "sin",
     "sign",
     "set_rng_state",
+    "set_detect_anomaly",
     "split",
     "scatter_add",
     "sqrt",
@@ -167,5 +184,6 @@ __all__ = [
     "bool",
     "is_grad_enabled",
     "uint8",
+    "utils",
 ]
-__version__ = "0.12.0"
+__version__ = "0.13.0"

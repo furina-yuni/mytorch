@@ -47,7 +47,7 @@ Python 3.12 virtual environment with a compatible NVIDIA driver:
 
 ```powershell
 python -m pip install --index-url https://test.pypi.org/simple/ `
-  --extra-index-url https://pypi.org/simple/ mytorch-gpu==0.12.0
+  --extra-index-url https://pypi.org/simple/ mytorch-gpu==0.13.0
 python -c "import mytorch as mt; print(mt.__version__); print(mt.cuda.is_available())"
 ```
 
@@ -56,7 +56,18 @@ NumPy, Pillow, or NVIDIA CUDA component wheels.
 
 ## 5. Production release
 
-After the clean-install smoke test succeeds, run the same workflow with target
-`pypi`. Create and push the signed tag `v0.12.0` only after publication. PyPI
-files are immutable; fix mistakes with a new version instead of overwriting an
-existing artifact.
+After the clean-install smoke test succeeds, create and push the annotated tag
+`v0.13.0`. Version tags run `.github/workflows/publish.yml` and publish through
+the `pypi` Trusted Publisher environment. PyPI files are immutable; fix mistakes
+with a new version instead of overwriting an existing artifact.
+
+## 6. Verify the public wheel
+
+The successful publish workflow starts **Verify public wheel**. Its GPU runner
+downloads the immutable file from PyPI into an isolated target and checks the
+import path, version, forward matrix multiplication, backward gradients, and
+CUDA device. The same check can be repeated locally:
+
+```powershell
+conda run -n mytorch-gpu python scripts/verify_public_wheel.py --version 0.13.0
+```

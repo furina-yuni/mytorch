@@ -1,6 +1,6 @@
 """Neural-network modules, parameters, and functional operations."""
 
-from . import functional, init
+from . import functional, init, utils
 from .modules import (
     CELU,
     ELU,
@@ -232,4 +232,5 @@ __all__ = [
     "apply_rotary_pos_emb",
     "functional",
     "init",
+    "utils",
 ]

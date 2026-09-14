@@ -1,16 +1,16 @@
 # MyTorch
 
-> 한국어 API 레퍼런스는 `python scripts/build_docs.py` 실행 후
-> [MyTorch 0.12.0 HTML 문서](docs/index.html)에서 확인할 수 있습니다.
+> 한국어 API 레퍼런스는 [MyTorch 0.13.0 문서 사이트](https://furina-yuni.github.io/mytorch/)에서
+> 확인할 수 있습니다. 로컬 문서는 `python scripts/build_docs.py`로 다시 만들 수 있습니다.
 
 > **Beta software:** 연구·학습용 공개 프리릴리스입니다. PyTorch와의 완전한
 > API/수치 호환성이나 장기 체크포인트 호환성을 아직 보장하지 않습니다.
 
 NVIDIA GPU에서만 수치 연산을 수행하는 교육용 Tensor 및 자동미분 프레임워크입니다.
-현재 버전 0.12.0은 GPU Tensor와 자동미분뿐 아니라 실제 파일 DataLoader,
+현재 버전 0.13.0은 GPU Tensor와 자동미분뿐 아니라 실제 파일 DataLoader,
 CNN, RNN/LSTM/GRU,
 Transformer Encoder, 정규화, LoRA, BitNet, 저정밀 추론, MoE,
-FP16 AMP와 learning-rate scheduler를 제공합니다.
+FP16 AMP와 learning-rate scheduler, autograd 진단과 CUDA profiler를 제공합니다.
 
 배포 패키지 이름은 `mytorch-gpu`이고 Python import 이름은 `mytorch`입니다.
 PyPI의 `mytorch` 이름은 별도의 기존 프로젝트가 소유하고 있습니다.
@@ -125,7 +125,34 @@ main thread가 완성된 NumPy batch를 pinned memory에서 CUDA stream으로 �
 생성됩니다. `backward()`는 leaf Tensor의 `grad`에 값을 누적하고 기본적으로
 사용한 그래프를 해제합니다. 같은 그래프를 다시 사용하려면 첫 호출에
 `retain_graph=True`를 지정합니다. 평가처럼 그래프가 필요 없는 코드는
-`with mt.no_grad():`로 감쌀 수 있습니다.
+`with mt.no_grad():`로 감쌀 수 있습니다. 결과를 이후 학습 그래프에 연결하지 않는
+순수 추론에는 bookkeeping까지 줄이는 `with mt.inference_mode():`를 권장합니다.
+
+### Gradient 조회와 안정화
+
+`mt.grad()`는 leaf Tensor의 `.grad`를 변경하지 않고 지정 입력에 대한
+vector-Jacobian product를 반환합니다. 폭주하는 gradient는 optimizer step 전에
+전체 norm 또는 개별 값으로 제한할 수 있습니다.
+
+```python
+x = mt.tensor([1.0, 2.0, 3.0], requires_grad=True)
+loss = x.square().sum()
+(gradient,) = mt.grad(loss, x)
+assert x.grad is None
+
+optimizer.zero_grad()
+loss = criterion(model(inputs), targets)
+loss.backward()
+total_norm = mt.nn.utils.clip_grad_norm_(
+    model.parameters(), max_norm=1.0, error_if_nonfinite=True
+)
+optimizer.step()
+```
+
+AMP gradient를 제한할 때는 `scaler.unscale_(optimizer)` 다음에 clipping하고
+`scaler.step(optimizer)`를 호출합니다. `mt.detect_anomaly()`는 디버깅 시
+non-finite gradient를 만든 backward 연산과 forward 위치를 알려주지만 GPU 동기화
+비용이 있으므로 정상 학습에서는 끕니다.
 
 완전한 mini-batch 학습과 별도 추론 예제는 다음 순서로 실행합니다.
 
@@ -176,6 +203,8 @@ Tensor 데이터와 연산 결과는 항상 CUDA 장치에 남습니다. 기본 
 - 스케줄러: `StepLR`, `MultiStepLR`, `ExponentialLR`, `LinearLR`,
   `CosineAnnealingLR`, `CosineAnnealingWarmRestarts`, `SequentialLR`,
   `OneCycleLR`, `ReduceLROnPlateau`
+- 학습 진단: `grad`, `inference_mode`, `detect_anomaly`, gradient clipping,
+  CUDA memory 통계와 operator profiler
 
 활성화 함수는 `mytorch.nn.functional`에서 사용합니다. `relu`, `sigmoid`,
 `tanh`, `softmax`, `log_softmax`는 Tensor 메서드로도 호출할 수 있습니다.
@@ -246,6 +275,31 @@ FP16으로 실행합니다. softmax, normalization, loss와 주요 reduction은 
 
 `ReduceLROnPlateau`는 일반 scheduler와 달리 검증이 끝난 뒤
 `scheduler.step(validation_loss)`로 호출합니다.
+
+## CUDA memory와 Profiler
+
+```python
+mt.cuda.reset_peak_memory_stats()
+with mt.profiler.profile(record_shapes=True) as prof:
+    prediction = model(inputs)
+    loss = criterion(prediction, targets)
+    loss.backward()
+
+print(prof.summary())
+print(mt.cuda.memory_summary())
+```
+
+Profiler는 `_ops.apply()`를 통과한 GPU 연산마다 CUDA event를 기록합니다. Context가
+끝난 뒤 `events()`에서 개별 기록을, `key_averages()`에서 연산 이름별 합계를 읽을
+수 있습니다. 메모리 통계는 CuPy pool의 사용·예약 byte와 CUDA runtime의 물리 장치
+여유량을 함께 보여 줍니다.
+
+설치 오류나 이슈를 보고할 때는 다음 결과를 첨부합니다.
+
+```powershell
+python -m mytorch.utils
+python -m mytorch.utils --json
+```
 
 ## Transformer와 BitLinear
 
@@ -329,7 +383,7 @@ start_epoch = checkpoint["epoch"]
 
 ## API 문서 관리
 
-생성된 문서는 [문서 홈](docs/index.html)과 27개의 모듈·기능별 상세 페이지로 구성됩니다.
+생성된 문서는 [문서 홈](docs/index.html)과 29개의 모듈·기능별 상세 페이지로 구성됩니다.
 설명 원본은 `docs/content`, 공통 디자인은 `docs/assets/css`, 검색·테마·모바일
 동작은 `docs/assets/js`에 분리되어 있습니다. HTML은 현재 Python 시그니처를
 읽어 생성하므로 코드와 문서의 인자 목록이 어긋나는 것을 줄일 수 있습니다.
@@ -371,7 +425,7 @@ CUDA와 외부 Python 의존성은 모두 `mytorch-gpu` 환경의 conda-forge �
 깨끗한 Python 3.12 가상환경에서는 다음과 같이 설치할 수 있습니다.
 
 ```powershell
-python -m pip install mytorch-gpu==0.12.0
+python -m pip install mytorch-gpu==0.13.0
 python -c "import mytorch as mt; print(mt.__version__, mt.cuda.is_available())"
 ```
 

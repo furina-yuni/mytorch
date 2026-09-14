@@ -168,12 +168,17 @@ class Tensor:
     ) -> None:
         if not isinstance(requires_grad, bool):
             raise TypeError("requires_grad must be a bool")
+        inference = _autograd.is_inference_mode_enabled()
         if requires_grad and self.__array.dtype.kind != "f":
             raise TypeError("only floating-point Tensors can require gradients")
-        self._requires_grad = requires_grad
+        self._requires_grad = requires_grad and not inference
         self._grad: Tensor | None = None
         self._grad_fn = grad_fn
         self._version = 0
+        self._is_inference = inference
+        from . import cuda
+
+        cuda._record_memory_snapshot(self._device_index)
 
     @property
     def requires_grad(self) -> bool:
@@ -191,11 +196,17 @@ class Tensor:
     def is_leaf(self) -> bool:
         return self._grad_fn is None
 
+    def is_inference(self) -> bool:
+        """Return whether this Tensor was created inside ``inference_mode``."""
+        return self._is_inference
+
     def requires_grad_(self, requires_grad: bool = True) -> Tensor:
         if not self.is_leaf:
             raise RuntimeError("requires_grad_() can only change leaf Tensors")
         if not isinstance(requires_grad, bool):
             raise TypeError("requires_grad must be a bool")
+        if requires_grad and self._is_inference:
+            raise RuntimeError("an inference Tensor cannot require gradients")
         if requires_grad and self.dtype.kind != "f":
             raise TypeError("only floating-point Tensors can require gradients")
         self._requires_grad = requires_grad

@@ -1,0 +1,43 @@
+name: Verify public wheel
+
+on:
+  workflow_run:
+    workflows: ["Publish distribution"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Published mytorch-gpu version
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  public-wheel-gpu-smoke:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push')
+    runs-on: [self-hosted, Windows, X64, gpu, nvidia]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - name: Resolve version
+        id: version
+        shell: powershell
+        run: |
+          if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
+            $version = '${{ inputs.version }}'
+          } else {
+            $version = conda run -n mytorch-gpu python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
+          }
+          "value=$($version.Trim())" >> $env:GITHUB_OUTPUT
+      - name: Install and test the public wheel
+        shell: powershell
+        run: >-
+          conda run -n mytorch-gpu python scripts/verify_public_wheel.py
+          --version "${{ steps.version.outputs.value }}"
